@@ -1,0 +1,42 @@
+Package: phyloseqExplorer
+Title: Interactive Exploration and Publication-Ready Analysis of Phyloseq Objects
+Version: 0.1.0
+Authors@R:
+    person("Nourelhouda", "Mathlouthi", , "nourhouda0810@gmail.com",
+           role = c("aut", "cre"), comment = c(ORCID = "0000-0000-0000-0000"))
+Description: A Shiny application for microbiome and metabarcoding data stored as
+    phyloseq objects. Provides sequence/QC overview, rarefaction, composition
+    plots and tables (with per-clade ASV and read counts), alpha diversity with
+    assumption-checked statistics, beta diversity (PCoA, dendrogram, biplot,
+    PERMANOVA, betadisper, pairwise tests), constrained ordination (RDA) with
+    collinearity and VIF guards plus taxon-environment correlations, taxonomy
+    tables and regex group search. Figures export as SVG, PNG, PDF or TIFF and
+    every tab exports Excel workbooks. Runs fully offline with any phyloseq object.
+License: MIT + file LICENSE
+Encoding: UTF-8
+biocViews: Microbiome
+Roxygen: list(markdown = TRUE)
+Imports:
+    shiny,
+    phyloseq,
+    ggplot2,
+    DT,
+    vegan,
+    openxlsx,
+    scales,
+    ape,
+    stats,
+    utils,
+    grDevices,
+    tools
+Suggests:
+    testthat (>= 3.0.0),
+    ggpubr,
+    ggdendro,
+    treemap,
+    pheatmap,
+    ggrepel,
+    svglite,
+    patchwork,
+    picante
+Config/testthat/edition: 3

@@ -1,0 +1,19 @@
+# Handwritten NAMESPACE (roxygen2 was not run; safe to regenerate later with devtools::document())
+
+export(run_app)
+
+import(shiny)
+import(ggplot2)
+import(phyloseq)
+importFrom(DT, datatable, DTOutput, renderDT)
+
+importFrom(vegan, scores)
+importFrom(stats, anova, aov, as.dist, bartlett.test, cmdscale, complete.cases,
+           cor, cor.test, hclust, kruskal.test, p.adjust,
+           pairwise.wilcox.test, reshape, sd, setNames, shapiro.test,
+           median, TukeyHSD)
+# note: scale and format.pval are base functions, resolved without import
+importFrom(utils, combn, data, head, write.csv)
+# note: validUTF8 is a base function, resolved without import
+importFrom(grDevices, colorRampPalette)
+importFrom(grid, unit)
