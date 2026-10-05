@@ -28,7 +28,7 @@ your data never leaves your machine.
 
 ```r
 # from GitHub (once published):
-remotes::install_github("yourusername/phyloseqExplorer")
+remotes::install_github("nour0810/phyloseqExplorer")
 ```
 
 For local development, clone the repo and use:
