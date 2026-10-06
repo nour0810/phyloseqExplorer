@@ -38,7 +38,8 @@ Suggests:
     ggrepel,
     svglite,
     patchwork,
-    picante
+    picante,
+    igraph
 Config/testthat/edition: 3
 URL: https://github.com/nour0810/phyloseqExplorer
 BugReports: https://github.com/nour0810/phyloseqExplorer/issues
