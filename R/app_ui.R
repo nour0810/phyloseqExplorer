@@ -6,13 +6,18 @@
 #' @noRd
 app_ui <- function(request) {
 fluidPage(
-  titlePanel(
-    div(
-      "phyloseq Explorer",
-      div(style = "font-size:16px; color:#444; font-weight:normal; margin-top:3px;",
-          "\u00A9 2026 Mathlouthi Nourelhouda (TN)  ",
-          span(style = "font-size:16px;", "\U0001F1F9\U0001F1F3"))
-    )
+  tags$head(tags$style(HTML(
+    "#title-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: #fff; padding: 6px 15px 4px 15px; border-bottom: 1px solid #ddd; } body { padding-top: 82px; }"
+  ))),
+  div(id = "title-bar",
+      titlePanel(
+        div(
+          "phyloseq Explorer",
+          div(style = "font-size:16px; color:#444; font-weight:normal; margin-top:3px;",
+              "\u00A9 2026 Mathlouthi Nourelhouda (TN)  ",
+              span(style = "font-size:16px;", "\U0001F1F9\U0001F1F3"))
+        )
+      )
   ),
   sidebarLayout(
     sidebarPanel(
