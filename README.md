@@ -14,6 +14,7 @@ publication-ready figures and statistics, fully offline.
 | **Alpha diversity** | Observed, Simpson, Chao1, Shannon (+ Faith's PD when a tree exists); Shapiro-Wilk + Bartlett assumption checks; ANOVA/Tukey or Kruskal-Wallis/pairwise Wilcoxon (BH) with significance brackets |
 | **Beta diversity** | Bray-Curtis (or Jaccard/Euclidean) dendrogram, PCoA + biplot; PERMANOVA, betadisper, pairwise PERMANOVA (BH); method summary table |
 | **Environment (RDA)** | Constrained ordination with collinearity screen (\|r\| threshold) and VIF guard; taxon–environment correlation heatmap with BH-adjusted significance |
+| **Network** | Sample-similarity network (distance threshold, 5 layouts, group colors/shapes, read-scaled nodes) and taxon co-occurrence network (Spearman/Pearson/Kendall, \|r\| + FDR thresholds, sign-filtered edges, hub labeling, degree pruning) |
 | **Taxa tables** | Full ASV table (taxonomy, reads, prevalence, sequence) + regex group search |
 
 **Exports:** every figure as SVG / PNG / PDF / **TIFF (LZW, 300–600 dpi)**; every tab
@@ -28,7 +29,7 @@ your data never leaves your machine.
 
 ```r
 # from GitHub (once published):
-remotes::install_github("nour0810/phyloseqExplorer")
+remotes::install_github("yourusername/phyloseqExplorer")
 ```
 
 For local development, clone the repo and use:
@@ -50,7 +51,7 @@ and group-from-sample-name rules can be added in the sidebar.
 Optional packages unlock extra features (the app tells you what to install if missing):
 `ggpubr` (p-value brackets), `ggdendro` (ggplot dendrogram), `treemap`, `pheatmap`,
 `ggrepel` (label repulsion), `svglite` (better SVG), `patchwork` (biplot panels),
-`picante` (Faith's PD).
+`picante` (Faith's PD), `igraph` (network plots).
 
 ## Methods & reproducibility notes
 

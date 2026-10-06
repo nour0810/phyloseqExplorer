@@ -52,7 +52,8 @@ app_server <- function(input, output, session) {
   observeEvent(input$apply_rules, rules(list(name = input$rule_name, text = input$rule_text)))
 
   raw <- reactive({
-    p <- base(); req(p)
+    p <- base()
+    if (is.null(p)) return(NULL)
     if (!is.null(input$meta_file)) {
       mt <- tryCatch(read_meta(input$meta_file$datapath, input$meta_file$name), error = function(e) {
         showNotification(paste("Could not read metadata:", conditionMessage(e)), type = "error"); NULL })
@@ -73,7 +74,7 @@ app_server <- function(input, output, session) {
     cur
   }
   observeEvent(raw(), {
-    p <- raw(); ranks <- rank_names(p); sv <- sample_variables(p)
+    p <- raw(); req(p); ranks <- rank_names(p); sv <- sample_variables(p)
     numv <- sv[vapply(sv, function(v) is_num(sd_df(p)[[v]]), logical(1))]
     def <- ranks[grepl("phylum|division", ranks, ignore.case = TRUE)][1]; if (is.na(def)) def <- ranks[min(2, length(ranks))]
     deftm <- ranks[grepl("^class$", ranks, ignore.case = TRUE)][1]; if (is.na(deftm)) deftm <- def
@@ -787,4 +788,174 @@ app_server <- function(input, output, session) {
   # =================================================================
   # ENVIRONMENT: RDA + correlations
   # =================================================================
-  two_cols <
+  two_cols <- function(m) { m <- as.matrix(m); if (ncol(m) < 2) m <- cbind(m, 0); m[, 1:2, drop = FALSE] }
+
+  rda_run <- reactive({
+    req(input$env_vars, input$env_level); p <- ps_f(); sd <- sd_df(p)
+    env <- sd[, input$env_vars, drop = FALSE]; env[] <- lapply(env, function(x) suppressWarnings(as.numeric(as.character(x))))
+    lab_map <- setNames(names(env), make.names(names(env), unique = TRUE)); names(env) <- names(lab_map)
+    ok <- stats::complete.cases(env); validate(need(sum(ok) >= 4, "Need >= 4 samples with complete values for the selected variables."))
+    p <- prune_samples(rownames(env)[ok], p); env <- env[ok, , drop = FALSE]
+    env <- env[, vapply(env, function(x) sd(x) > 0, logical(1)), drop = FALSE]; validate(need(ncol(env) >= 1, "Selected variables are constant."))
+    m <- if (input$env_level == "ASV") otu_mat(p) else agg_matrix(p, input$env_level)
+    m <- m[rowSums(m) > 0, , drop = FALSE]; m <- m[order(rowSums(m), decreasing = TRUE), , drop = FALSE]
+    Yfull <- vegan::decostand(t(m)[rownames(env), , drop = FALSE], "hellinger")
+    top <- rownames(m)[seq_len(min(input$env_topn, nrow(m)))]; Y <- Yfull[, top, drop = FALSE]
+    mean_pct <- colMeans(rel100(m)[top, rownames(env), drop = FALSE] |> t())
+    envs <- as.data.frame(scale(env))
+    cand <- vapply(names(envs), function(v) { x <- envs[[v]]; tryCatch(vegan::RsquareAdj(vegan::rda(Y ~ x))$adj.r.squared, error = function(e) NA_real_) }, numeric(1))
+    cand_df <- data.frame(Variable = unname(lab_map[names(cand)]), Marginal_adj_R2 = round(cand, 4), row.names = NULL)
+    dropped <- data.frame(Variable = character(), Reason = character(), stringsAsFactors = FALSE)
+    repeat {
+      if (ncol(envs) < 2) break; cm <- abs(cor(envs)); diag(cm) <- 0; if (max(cm) < input$env_r) break
+      ij <- which(cm == max(cm), arr.ind = TRUE)[1, ]; pr <- colnames(cm)[ij]; dv <- pr[which.max(colMeans(cm)[pr])]
+      dropped <- rbind(dropped, data.frame(Variable = lab_map[dv], Reason = sprintf("|r| >= %.2f with %s", input$env_r, lab_map[setdiff(pr, dv)[1]])))
+      envs[[dv]] <- NULL
+    }
+    while (ncol(envs) > nrow(envs) - 2 && ncol(envs) > 1) {
+      dv <- names(which.min(cand[names(envs)])); dropped <- rbind(dropped, data.frame(Variable = lab_map[dv], Reason = "more variables than degrees of freedom allow")); envs[[dv]] <- NULL
+    }
+    vif_removed <- character()
+    repeat {
+      mod <- vegan::rda(Y ~ ., data = envs)
+      v <- tryCatch(vegan::vif.cca(mod), error = function(e) NULL)
+      if (!isTRUE(input$env_vif) || is.null(v) || ncol(envs) <= 1) break
+      v[is.na(v)] <- Inf; if (max(v) <= 10) break
+      dv <- names(which.max(v)); vif_removed <- c(vif_removed, lab_map[dv]); envs[[dv]] <- NULL
+    }
+    set.seed(42); perm <- input$env_perm
+    glob <- tryCatch(anova(mod, permutations = perm), error = function(e) NULL)
+    marg <- tryCatch(anova(mod, by = "margin", permutations = perm), error = function(e) NULL)
+    vf <- tryCatch(vegan::vif.cca(mod), error = function(e) setNames(rep(NA_real_, ncol(envs)), names(envs)))
+    ra <- vegan::RsquareAdj(mod); eigs <- c(mod$CCA$eig, mod$CA$eig); pct <- 100 * eigs[1:2] / mod$tot.chi
+    sc <- scores(mod, display = c("sites", "species", "bp"), choices = 1:2, scaling = 2)
+    sites <- two_cols(sc$sites); spec <- two_cols(sc$species); bp <- two_cols(sc$biplot); axn <- colnames(scores(mod, display = "sites", choices = 1:2))[1:2]
+    colnames(sites) <- colnames(spec) <- colnames(bp) <- axn; rownames(bp) <- unname(lab_map[rownames(sc$biplot)])
+    # correlations taxon ~ env (final variables, Hellinger abundance)
+    envf <- env[, names(envs), drop = FALSE]; long <- NULL
+    for (tx in colnames(Y)) for (vn in names(envf)) {
+      ct <- tryCatch(cor.test(Y[, tx], envf[[vn]]), error = function(e) NULL)
+      long <- rbind(long, data.frame(Taxon = tx, Variable = unname(lab_map[vn]), r = if (is.null(ct)) NA else unname(ct$estimate),
+                                     p_value = if (is.null(ct)) NA else ct$p.value, stringsAsFactors = FALSE))
+    }
+    long$p_adj_BH <- p.adjust(long$p_value, "BH"); long$Stars <- stars_blank(long$p_adj_BH)
+    stats_df <- data.frame(Variables_final = paste(unname(lab_map[names(envs)]), collapse = ", "),
+                           Removed_by_collinearity = paste(dropped$Variable, collapse = ", "), Removed_by_VIF = paste(vif_removed, collapse = ", "),
+                           R2 = round(unname(ra$r.squared), 4), Adj_R2 = round(unname(ra$adj.r.squared), 4),
+                           Global_p = if (!is.null(glob)) glob$`Pr(>F)`[1] else NA, Axis1_pct = round(pct[1], 2), Axis2_pct = round(pct[2], 2),
+                           Axis2_type = if (length(mod$CCA$eig) >= 2) "constrained (RDA2)" else "first unconstrained (PC1)",
+                           row.names = NULL)
+    list(mod = mod, sites = sites, spec = spec, bp = bp, axn = axn, pct = pct, mean_pct = mean_pct, long = long, lab_map = lab_map,
+         stats = stats_df, glob = glob, marg = marg, vif = vf, cand = cand_df, dropped = dropped, p = p, level = input$env_level)
+  })
+
+  rda_gg <- reactive({
+    r <- rda_run(); p <- r$p; ss <- as.data.frame(r$sites); ss$Sample <- rownames(ss)
+    gv <- if (input$env_group == "None") NULL else grp_of(p, input$env_group); sv <- if (input$env_shape == "None") NULL else grp_of(p, input$env_shape)
+    ss$G <- if (is.null(gv)) "samples" else gv[ss$Sample]; ss$S <- if (is.null(sv)) "samples" else sv[ss$Sample]
+    A <- r$axn; names(ss)[1:2] <- c("X", "Y")
+    lim <- max(abs(c(ss$X, ss$Y))) * 1.15
+    mb <- 0.85 * max(abs(c(ss$X, ss$Y))) / max(abs(r$bp), 1e-9); bp <- as.data.frame(r$bp * mb); names(bp) <- c("X", "Y"); bp$lab <- rownames(bp)
+    mt <- 0.9 * max(abs(c(ss$X, ss$Y))) / max(abs(r$spec), 1e-9); sp <- as.data.frame(r$spec * mt); names(sp) <- c("X", "Y"); sp$lab <- rownames(sp)
+    sp$mean <- r$mean_pct[sp$lab]
+    if (isTRUE(input$env_sig)) {
+      L <- r$long; sig <- L[!is.na(L$p_value) & L$p_value <= 0.05, ]
+      rmax <- tapply(abs(sig$r), sig$Taxon, max); keep <- names(sort(rmax, decreasing = TRUE))[seq_len(min(10, length(rmax)))]
+      sp_plot <- sp[sp$lab %in% keep, , drop = FALSE]; sp_lab <- sp_plot
+    } else {
+      sp_plot <- sp; d0 <- sqrt(sp$X^2 + sp$Y^2); sp_lab <- sp[rank(-d0) <= (if (r$level == "ASV") 20 else 10), , drop = FALSE]
+    }
+    rep_t <- function(...) if (has("ggrepel")) ggrepel::geom_text_repel(...) else geom_text(..., vjust = -0.7)
+    gl <- sort(unique(ss$G)); sl <- sort(unique(ss$S))
+    g <- ggplot(ss, aes(X, Y)) + geom_hline(yintercept = 0, linetype = 2, color = "grey60") + geom_vline(xintercept = 0, linetype = 2, color = "grey60") +
+      coord_cartesian(xlim = c(-lim, lim), ylim = c(-lim, lim)) +
+      geom_segment(data = bp, aes(x = 0, y = 0, xend = X, yend = Y), arrow = arrow(length = unit(0.10, "cm"), type = "closed"), color = "darkblue", linewidth = 0.4) +
+      rep_t(data = bp, aes(X, Y, label = lab), color = "darkblue", size = 3.4) +
+      geom_point(data = sp_plot, aes(X, Y), shape = 4, size = 1.4, color = "brown3", stroke = 0.5) +
+      rep_t(data = sp_lab, aes(X, Y, label = lab), color = "brown3", size = 2.6) +
+      geom_point(aes(color = G, shape = S), size = 3) +
+      scale_color_manual(values = if (is.null(gv)) c(samples = "black") else group_cols(gl)) +
+      scale_shape_manual(values = if (is.null(sv)) c(samples = 16) else rep(c(16, 17, 15, 18, 3, 4, 8, 7, 9, 10), 5)[seq_along(sl)]) +
+      labs(x = sprintf("%s (%.1f%%)", A[1], r$pct[1]), y = sprintf("%s (%.1f%%)", A[2], r$pct[2]),
+           color = if (is.null(gv)) NULL else input$env_group, shape = if (is.null(sv)) NULL else input$env_shape,
+           title = sprintf("RDA - %s level, top %d taxa | adj R2 = %.3f | global p = %s", r$level, nrow(sp), r$stats$Adj_R2,
+                           format.pval(r$stats$Global_p, digits = 3))) +
+      theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank(), plot.title = element_text(face = "bold", size = 11))
+    if (is.null(gv)) g <- g + guides(color = "none"); if (is.null(sv)) g <- g + guides(shape = "none")
+    g
+  })
+  output$rda_plot <- renderPlot(show_gg(rda_gg()))
+  dl_gg("dl_rda", rda_gg, "rda_biplot")
+
+  cor_gg <- reactive({
+    L <- rda_run()$long; L$Taxon <- factor(L$Taxon, levels = rev(unique(L$Taxon)))
+    ggplot(L, aes(Variable, Taxon, fill = r)) + geom_tile(color = "white") + geom_text(aes(label = Stars), size = 4) +
+      scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", limits = c(-1, 1), name = "Pearson r") +
+      labs(x = NULL, y = NULL, caption = "* p_adj<=0.05  ** <=0.01  *** <=0.001 (BH)") + theme_minimal(base_size = 11) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  })
+  output$cor_plot <- renderPlot(show_gg(cor_gg()))
+
+  tbl_or_msg <- function(x) { validate(need(!is.null(x), "Not available.")); dt(x) }
+  output$e_model <- renderDT(enc_safe(tbl_or_msg(rda_run()$stats)))
+  output$e_glob  <- renderDT(enc_safe({ x <- rda_run()$glob; tbl_or_msg(if (is.null(x)) NULL else data.frame(Term = rownames(x), x, check.names = FALSE)) }))
+  output$e_marg  <- renderDT(enc_safe({ x <- rda_run()$marg; tbl_or_msg(if (is.null(x)) NULL else data.frame(Term = rownames(x), x, check.names = FALSE)) }))
+  output$e_vif   <- renderDT(enc_safe({ v <- rda_run()$vif; tbl_or_msg(data.frame(Variable = unname(rda_run()$lab_map[names(v)]), VIF = round(as.numeric(v), 3))) }))
+  output$e_cand  <- renderDT(enc_safe(tbl_or_msg(rda_run()$cand)))
+  cor_mats <- reactive({
+    r <- rda_run(); L <- r$long; tt <- if (r$level == "ASV") tax_mat(r$p) else NULL
+    mk <- function(col, f = identity) { w <- reshape(L[, c("Taxon", "Variable", col)], idvar = "Taxon", timevar = "Variable", direction = "wide")
+      names(w) <- sub(paste0("^", col, "\\."), "", names(w)); w[-1] <- lapply(w[-1], f); rownames(w) <- NULL; w }
+    rr <- mk("r", function(x) round(x, 2)); pp <- mk("p_value", function(x) round(x, 4)); pa <- mk("p_adj_BH", function(x) round(x, 4))
+    rs <- rr; for (v in names(rr)[-1]) rs[[v]] <- paste0(rr[[v]], stars_blank(pa[[v]]))
+    add <- function(w) if (is.null(tt)) w else cbind(w, tt[w$Taxon, , drop = FALSE])
+    list(r = add(rs), p = add(pp), padj = add(pa))
+  })
+  output$e_cor <- renderDT(enc_safe(dt(cor_mats()$r)))
+  dl_xl("xl_rda", function() { r <- rda_run(); cm <- cor_mats(); wrap <- function(x) if (is.null(x)) NULL else data.frame(Term = rownames(x), x, check.names = FALSE)
+    list(Model_summary = r$stats, ANOVA_global = wrap(r$glob), ANOVA_margin = wrap(r$marg),
+         VIF = data.frame(Variable = unname(r$lab_map[names(r$vif)]), VIF = round(as.numeric(r$vif), 3)),
+         Correlation_screen = if (nrow(r$dropped)) r$dropped else data.frame(Note = "no variable removed"),
+         Candidate_marginal_R2 = r$cand, Site_scores = data.frame(Sample = rownames(r$sites), r$sites, row.names = NULL),
+         Taxa_scores = data.frame(Taxon = rownames(r$spec), r$spec, Mean_pct = round(r$mean_pct[rownames(r$spec)], 3), row.names = NULL),
+         Env_arrows = data.frame(Variable = rownames(r$bp), r$bp, row.names = NULL),
+         Corr_r_stars = cm$r, Corr_p_raw = cm$p, Corr_p_BH = cm$padj) }, "rda_results")
+
+  # =================================================================
+  # TAXA TABLES
+  # =================================================================
+  tax_df <- reactive({
+    p <- ps_f(); cnt <- otu_mat(p); tt <- as.data.frame(tax_mat(p), stringsAsFactors = FALSE)
+    tot <- rowSums(cnt)[taxa_names(p)]
+    df <- data.frame(ASV = paste0("ASV", seq_len(ntaxa(p))), ID = taxa_names(p), tt, Total_reads = as.numeric(tot),
+                     Rel_abundance_pct = round(100 * as.numeric(tot) / sum(tot), 3), Prevalence = rowSums(cnt > 0)[taxa_names(p)],
+                     check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
+    rs <- refseq(p, errorIfNULL = FALSE); if (!is.null(rs)) df$Sequence <- as.character(rs)[taxa_names(p)]
+    df[order(-df$Total_reads), ]
+  })
+  output$tax_tbl <- renderDT(enc_safe({
+    df <- tax_df(); if ("Sequence" %in% names(df)) df$Sequence <- ifelse(nchar(df$Sequence) > 40, paste0(substr(df$Sequence, 1, 40), "..."), df$Sequence)
+    datatable(df, rownames = FALSE, filter = "top", options = list(scrollX = TRUE, pageLength = 15))
+  }))
+  output$dl_tax <- downloadHandler(filename = function() "taxa_table.csv",
+                                   content = function(file) write.csv(tax_df(), file, row.names = FALSE, fileEncoding = "UTF-8"))
+
+  pat_res <- reactive({
+    pats <- trimws(unlist(strsplit(input$pat_text, "\n"))); pats <- pats[nzchar(pats)]
+    validate(need(length(pats) > 0, "Enter one or more patterns (regular expressions), one per line."))
+    p <- ps_f(); rel <- t(rel100(otu_mat(p))); tt <- tax_mat(p)[colnames(rel), , drop = FALSE]
+    g <- grp_of(p, input$pat_group)
+    do.call(rbind, lapply(pats, function(pt) {
+      hit <- apply(tt, 1, function(r) any(grepl(pt, r, ignore.case = TRUE))); if (!any(hit)) return(NULL)
+      ps <- rowSums(rel[, hit, drop = FALSE])
+      d <- data.frame(Pattern = pt, ASVs = sum(hit), Overall_pct = round(mean(ps), 2), stringsAsFactors = FALSE)
+      if (!is.null(g)) for (lv in unique(g[names(ps)])) d[[paste0(gsub("[^A-Za-z0-9]+", "_", lv), "_pct")]] <- round(mean(ps[g[names(ps)] == lv]), 2)
+      d$Top_sample <- names(ps)[which.max(ps)]; d$Top_sample_pct <- round(max(ps), 2); d
+    }))
+  })
+  output$pat_tbl <- renderDT(enc_safe({ x <- pat_res(); validate(need(!is.null(x), "No taxonomy matches those patterns.")); dt(x) }))
+  output$dl_pat <- downloadHandler(filename = function() "group_search.csv",
+                                   content = function(file) write.csv(pat_res(), file, row.names = FALSE, fileEncoding = "UTF-8"))
+
+  output$dl_ps <- downloadHandler(filename = function() "filtered.phyloseq.rds", content = function(file) saveRDS(ps_f(), file))
+}
