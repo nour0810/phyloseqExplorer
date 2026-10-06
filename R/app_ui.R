@@ -6,7 +6,14 @@
 #' @noRd
 app_ui <- function(request) {
 fluidPage(
-  titlePanel("phyloseq Explorer"),
+  titlePanel(
+    div(
+      "phyloseq Explorer",
+      div(style = "font-size:12px; color:#666; font-weight:normal; margin-top:2px;",
+          "\u00A9 2026 Mathlouthi Nourelhouda (TN)  ",
+          span(style = "font-size:13px;", "\U0001F1F9\U0001F1F3"))
+    )
+  ),
   sidebarLayout(
     sidebarPanel(
       width = 3,
