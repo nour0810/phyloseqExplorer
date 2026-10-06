@@ -650,7 +650,11 @@ app_server <- function(input, output, session) {
   }
 
   # ---- mode A: sample similarity network -----------------------------
-  net_scale <- function(x, to = c(3, 14)) {
+  dim_hex <- function(hex, f = 0.72) {
+    v <- round(col2rgb(hex) * f)
+    rgb(v[1, 1], v[2, 1], v[3, 1], maxColorValue = 255)
+  }
+  net_scale <- function(x, to = c(4, 18)) {
     x <- as.numeric(x)
     if (!length(x) || all(is.na(x)) || max(x, na.rm = TRUE) == min(x, na.rm = TRUE)) return(rep(6, length(x)))
     scales::rescale(x, to = to)
@@ -754,13 +758,13 @@ app_server <- function(input, output, session) {
     } else rep("taxa", nrow(df))
     g <- ggplot(df, aes(x, y))
     if (input$net_ecol == "sign") {
-      g <- g + geom_segment(data = e, aes(xend = xend, yend = yend, color = sign),
-                            linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab) +
+      g <- g + geom_curve(data = e, aes(xend = xend, yend = yend, color = sign),
+                          curvature = input$net_curv, linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab) +
         scale_color_manual(values = c(positive = "#4DAF4A", negative = "#E41A1C"))
     } else {
       validate(need(grepl("^#[0-9A-Fa-f]{6}$", input$net_ecolhex), "Edge color must be a hex code like #5BA8A0."))
-      g <- g + geom_segment(data = e, aes(xend = xend, yend = yend), color = input$net_ecolhex,
-                            linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab)
+      g <- g + geom_curve(data = e, aes(xend = xend, yend = yend), color = input$net_ecolhex,
+                          curvature = input$net_curv, linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab)
     }
     if (input$net_nfill == "rank") {
       g <- g + geom_point(aes(fill = colr), shape = 21, color = "grey25", size = df$size,
@@ -769,14 +773,14 @@ app_server <- function(input, output, session) {
         labs(fill = input$net_colrank)
     } else {
       validate(need(grepl("^#[0-9A-Fa-f]{6}$", input$net_fcol), "Node color must be a hex code like #F0653A."))
-      g <- g + geom_point(fill = input$net_fcol, shape = 21, color = "grey25", size = df$size,
+      g <- g + geom_point(fill = input$net_fcol, shape = 21, color = dim_hex(input$net_fcol), size = df$size,
                           stroke = input$net_nstroke, alpha = 0.95)
     }
-    g <- g + labs(color = "Association",
-                  title = sprintf("%d taxa, %d edges (%s, |r| >= %s, FDR <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, input$net_fdr)) +
-      theme_bw(base_size = 12) +
-      theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
-            panel.grid = element_blank(), legend.text = element_text(size = 8))
+    ttl <- if (nzchar(trimws(input$net_title))) trimws(input$net_title) else
+      sprintf("%d taxa, %d edges (%s, |r| >= %s, FDR <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, input$net_fdr)
+    g <- g + labs(color = "Association", title = ttl) +
+      theme_void(base_size = 12) +
+      theme(legend.text = element_text(size = 8))
     if (!isTRUE(input$net_leg)) g <- g + theme(legend.position = "none")
     if (input$net_hub > 0) {
       hubs <- df[order(-df$deg), ][seq_len(min(input$net_hub, nrow(df))), , drop = FALSE]
@@ -792,8 +796,9 @@ app_server <- function(input, output, session) {
           paste0(unname(id_map[top]), " - ", lb)
         }, character(1))
       }
-      g <- g + (if (has("ggrepel")) ggrepel::geom_text_repel(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, show.legend = FALSE)
-                else geom_text(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, show.legend = FALSE))
+      fcb <- if (isTRUE(input$net_bold)) "bold" else "plain"
+      g <- g + (if (has("ggrepel")) ggrepel::geom_text_repel(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, fontface = fcb, show.legend = FALSE)
+                else geom_text(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, fontface = fcb, show.legend = FALSE))
     }
     g
   })
