@@ -162,6 +162,10 @@ fluidPage(
               column(2, selectInput("net_corm", "Correlation (B)", c("spearman", "pearson", "kendall"))),
               column(2, sliderInput("net_r", "Min |r| (B)", 0.2, 0.95, 0.6, 0.05))),
             fluidRow(
+              column(2, numericInput("net_minpct", "Min total reads %", 0, 0, 100, step = 0.01)),
+              column(2, numericInput("net_minreads", "Min abundance (reads)", 0, 0, 1e9)),
+              column(8, helpText("Filters by total contribution: '% of all reads' and absolute read count. Applied before Top N."))),
+            fluidRow(
               column(2, sliderInput("net_fdr", "FDR cutoff (B)", 0.001, 0.2, 0.05, 0.001)),
               column(2, selectInput("net_edge", "Edges (B)", c("Both signs" = "both", "Positive" = "pos", "Negative" = "neg"))),
               column(2, numericInput("net_deg", "Min degree (B)", 1, 0, 20)),
@@ -175,7 +179,7 @@ fluidPage(
               column(2, textInput("net_fcol", "Node hex", "#F0653A")),
               column(2, selectInput("net_ecol", "Edge color", c("By sign" = "sign", "Custom" = "one"))),
               column(2, textInput("net_ecolhex", "Edge hex", "#5BA8A0")),
-              column(2, selectInput("net_lfmt", "Label", c("Name" = "name", "Name - rank" = "both"))),
+              column(2, selectInput("net_lfmt", "Label", c("Name" = "name", "Name - rank" = "both", "Top ASV - name" = "asv"))),
               column(2, checkboxInput("net_leg", "Legend", TRUE))),
             fluidRow(
               column(2, sliderInput("net_nscale", "Node size x", 0.5, 3, 1, 0.1)),

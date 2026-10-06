@@ -703,7 +703,11 @@ app_server <- function(input, output, session) {
   # ---- mode B: taxon co-occurrence network ---------------------------
   netB <- reactive({
     req(input$net_mode == "cooc", input$net_rank); p <- ps_f()
-    cnt <- agg_matrix(p, input$net_rank); rel <- rel100(cnt)
+    cnt <- agg_matrix(p, input$net_rank)
+    tot_all <- sum(cnt)
+    cnt <- cnt[rowSums(cnt) / tot_all * 100 >= input$net_minpct, , drop = FALSE]
+    cnt <- cnt[rowSums(cnt) >= input$net_minreads, , drop = FALSE]
+    rel <- rel100(cnt)
     keep <- rowSums(rel >= input$net_mina) >= ceiling(input$net_minp / 100 * ncol(rel))
     cnt <- cnt[keep, , drop = FALSE]
     tot <- sort(rowSums(cnt), decreasing = TRUE)
@@ -778,6 +782,16 @@ app_server <- function(input, output, session) {
       hubs <- df[order(-df$deg), ][seq_len(min(input$net_hub, nrow(df))), , drop = FALSE]
       labs_b <- hubs$name
       if (input$net_lfmt == "both") labs_b <- paste0(hubs$name, " - ", hubs$colr)
+      if (input$net_lfmt == "asv") {
+        asv_tot <- rowSums(otu_mat(n$p))
+        id_map <- setNames(paste0("ASV", seq_along(asv_tot)), names(sort(asv_tot, decreasing = TRUE)))
+        tt2 <- tax_mat(n$p)
+        labs_b <- vapply(hubs$name, function(lb) {
+          asvs <- rownames(tt2)[tt2[, input$net_rank] == lb]
+          top <- asvs[which.max(asv_tot[asvs])]
+          paste0(unname(id_map[top]), " - ", lb)
+        }, character(1))
+      }
       g <- g + (if (has("ggrepel")) ggrepel::geom_text_repel(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, show.legend = FALSE)
                 else geom_text(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, show.legend = FALSE))
     }
