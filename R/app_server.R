@@ -650,6 +650,11 @@ app_server <- function(input, output, session) {
   }
 
   # ---- mode A: sample similarity network -----------------------------
+  net_scale <- function(x, to = c(3, 14)) {
+    x <- as.numeric(x)
+    if (!length(x) || all(is.na(x)) || max(x, na.rm = TRUE) == min(x, na.rm = TRUE)) return(rep(6, length(x)))
+    scales::rescale(x, to = to)
+  }
   netA <- reactive({
     req(input$net_mode == "sample"); p <- ps_f()
     validate(need(nsamples(p) >= 3, "Need >= 3 samples."))
@@ -674,7 +679,7 @@ app_server <- function(input, output, session) {
     df$col <- gv[df$name]
     df$shp <- if (is.null(sv)) rep("samples", nrow(df)) else sv[df$name]
     lib <- sample_sums(p)
-    df$size <- if (input$net_nsize == "reads") sqrt(as.numeric(lib[df$name])) / 2 else 4
+    df$size <- if (input$net_nsize == "reads") net_scale(sqrt(as.numeric(lib[df$name]))) else 5
     e$x <- df$x[match(e$from, df$name)]; e$y <- df$y[match(e$from, df$name)]
     e$xend <- df$x[match(e$to, df$name)]; e$yend <- df$y[match(e$to, df$name)]
     g <- ggplot(df, aes(x, y)) +
@@ -731,11 +736,17 @@ app_server <- function(input, output, session) {
   netB_gg <- reactive({
     n <- netB(); df <- n$lay; e <- n$edges
     df$deg <- as.numeric(igraph::degree(n$g)[df$name])
-    df$size <- if (input$net_nsizeb == "deg") df$deg * 2 + 3 else sqrt(as.numeric(rowSums(n$cnt)[df$name])) / 2
+    df$size <- if (input$net_nsizeb == "deg") net_scale(df$deg) else net_scale(sqrt(as.numeric(rowSums(n$cnt)[df$name])))
     e$x <- df$x[match(e$from, df$name)]; e$y <- df$y[match(e$from, df$name)]
     e$xend <- df$x[match(e$to, df$name)]; e$yend <- df$y[match(e$to, df$name)]
     tt <- tax_mat(n$p)
-    df$colr <- if (input$net_colrank %in% colnames(tt)) tt[df$name, input$net_colrank] else "taxa"
+    if (input$net_colrank %in% colnames(tt)) {
+      df$colr <- vapply(df$name, function(lb) {
+        asvs <- rownames(tt)[tt[, input$net_rank] == lb]
+        vals <- tt[asvs, input$net_colrank]; vals <- vals[!is.na(vals)]
+        if (length(vals)) names(sort(table(vals), decreasing = TRUE))[1] else "Unknown"
+      }, character(1))
+    } else df$colr <- "taxa"
     g <- ggplot(df, aes(x, y)) +
       geom_segment(data = e, aes(xend = xend, yend = yend, color = sign), linewidth = abs(e$r) * 1.6, alpha = 0.55) +
       scale_color_manual(values = c(positive = "#4DAF4A", negative = "#E41A1C")) +
