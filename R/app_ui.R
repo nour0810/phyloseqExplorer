@@ -135,6 +135,44 @@ fluidPage(
           tabsetPanel(
             tabPanel("PERMANOVA", DTOutput("b_perm_t")), tabPanel("Betadisper", DTOutput("b_disp_t")),
             tabPanel("Pairwise PERMANOVA", DTOutput("b_pair_t")), tabPanel("Method", DTOutput("b_meth_t")))),
+                 # ---------------- Network
+        tabPanel("Network", br(),
+          if (has("igraph")) tagList(
+            fluidRow(column(2, selectInput("net_mode", "Mode", c("Sample similarity (A)" = "sample", "Taxon co-occurrence (B)" = "cooc")))),
+            fluidRow(
+              column(2, selectInput("net_dist", "Distance (A)", c("bray", "jaccard", "euclidean", "manhattan", "canberra"))),
+              column(2, sliderInput("net_maxd", "Edge: max dist (A)", 0.05, 0.95, 0.4, 0.05)),
+              column(2, checkboxInput("net_isol", "Keep isolated samples (A)", TRUE)),
+              column(2, selectInput("net_col", "Node color (A)", "Sample")),
+              column(2, selectInput("net_shp", "Node shape (A)", "None")),
+              column(2, radioButtons("net_nsize", "Node size (A)", c("Reads" = "reads", "Uniform" = "uni"), inline = TRUE))),
+            fluidRow(
+              column(2, textInput("net_lay", "Layout (fr/kk/circle/grid/random)", "fr")),
+              column(2, numericInput("net_seed", "Layout seed", 42, 1, 1e6)),
+              column(2, checkboxInput("net_lbl", "Label samples (A)", TRUE)),
+              column(2, numericInput("net_lbls", "Label size (A)", 3, 1, 8)),
+              column(2, numericInput("net_esz", "Edge width (A)", 0.6, 0.1, 3, step = 0.1)),
+              column(2, numericInput("net_alpha", "Edge alpha (A)", 0.7, 0.1, 1, step = 0.1))),
+            tags$hr(),
+            fluidRow(
+              column(2, selectInput("net_rank", "Node rank (B)", NULL)),
+              column(2, numericInput("net_topn", "Top N taxa (B)", 60, 10, 300)),
+              column(2, numericInput("net_mina", "Min rel. % (B)", 0.01, 0, 1, step = 0.01)),
+              column(2, numericInput("net_minp", "Min prev. % (B)", 10, 0, 100)),
+              column(2, selectInput("net_corm", "Correlation (B)", c("spearman", "pearson", "kendall"))),
+              column(2, sliderInput("net_r", "Min |r| (B)", 0.2, 0.95, 0.6, 0.05))),
+            fluidRow(
+              column(2, sliderInput("net_fdr", "FDR cutoff (B)", 0.001, 0.2, 0.05, 0.001)),
+              column(2, selectInput("net_edge", "Edges (B)", c("Both signs" = "both", "Positive" = "pos", "Negative" = "neg"))),
+              column(2, numericInput("net_deg", "Min degree (B)", 1, 0, 20)),
+              column(2, radioButtons("net_nsizeb", "Node size (B)", c("Reads" = "reads", "Degree" = "deg"), inline = TRUE)),
+              column(2, numericInput("net_hub", "Label top N hubs (B)", 10, 0, 50)),
+              column(2, selectInput("net_colrank", "Node color rank (B)", NULL))),
+            plotOutput("net_plot", height = "620px"),
+            dl_row("dl_net", "xl_net"),
+            tabsetPanel(
+              tabPanel("Edges", DTOutput("net_edge_t")), tabPanel("Nodes", DTOutput("net_node_t"))))
+          else div(class = "alert alert-warning", "Install 'igraph' for network analysis: install.packages('igraph')")),
         # ---------------- Environment
         tabPanel("Environment (RDA)", br(),
           fluidRow(column(4, selectizeInput("env_vars", "Numeric environmental variables (from metadata)", NULL, multiple = TRUE)),
