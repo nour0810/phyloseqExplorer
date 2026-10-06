@@ -679,7 +679,7 @@ app_server <- function(input, output, session) {
     df$col <- gv[df$name]
     df$shp <- if (is.null(sv)) rep("samples", nrow(df)) else sv[df$name]
     lib <- sample_sums(p)
-    df$size <- if (input$net_nsize == "reads") net_scale(sqrt(as.numeric(lib[df$name]))) else 5
+    df$size <- (if (input$net_nsize == "reads") net_scale(sqrt(as.numeric(lib[df$name]))) else 5) * input$net_nscale
     e$x <- df$x[match(e$from, df$name)]; e$y <- df$y[match(e$from, df$name)]
     e$xend <- df$x[match(e$to, df$name)]; e$yend <- df$y[match(e$to, df$name)]
     g <- ggplot(df, aes(x, y)) +
@@ -696,6 +696,7 @@ app_server <- function(input, output, session) {
     if (isTRUE(input$net_lbl))
       g <- g + (if (has("ggrepel")) ggrepel::geom_text_repel(aes(label = name), size = input$net_lbls, show.legend = FALSE)
                 else geom_text(aes(label = name), size = input$net_lbls, show.legend = FALSE))
+    if (!isTRUE(input$net_leg)) g <- g + theme(legend.position = "none")
     g
   })
 
@@ -736,31 +737,49 @@ app_server <- function(input, output, session) {
   netB_gg <- reactive({
     n <- netB(); df <- n$lay; e <- n$edges
     df$deg <- as.numeric(igraph::degree(n$g)[df$name])
-    df$size <- if (input$net_nsizeb == "deg") net_scale(df$deg) else net_scale(sqrt(as.numeric(rowSums(n$cnt)[df$name])))
+    df$size <- (if (input$net_nsizeb == "deg") net_scale(df$deg) else net_scale(sqrt(as.numeric(rowSums(n$cnt)[df$name])))) * input$net_nscale
     e$x <- df$x[match(e$from, df$name)]; e$y <- df$y[match(e$from, df$name)]
     e$xend <- df$x[match(e$to, df$name)]; e$yend <- df$y[match(e$to, df$name)]
     tt <- tax_mat(n$p)
-    if (input$net_colrank %in% colnames(tt)) {
-      df$colr <- vapply(df$name, function(lb) {
+    df$colr <- if (input$net_colrank %in% colnames(tt)) {
+      vapply(df$name, function(lb) {
         asvs <- rownames(tt)[tt[, input$net_rank] == lb]
         vals <- tt[asvs, input$net_colrank]; vals <- vals[!is.na(vals)]
         if (length(vals)) names(sort(table(vals), decreasing = TRUE))[1] else "Unknown"
       }, character(1))
-    } else df$colr <- "taxa"
-    g <- ggplot(df, aes(x, y)) +
-      geom_segment(data = e, aes(xend = xend, yend = yend, color = sign), linewidth = abs(e$r) * 1.6, alpha = 0.55) +
-      scale_color_manual(values = c(positive = "#4DAF4A", negative = "#E41A1C")) +
-      geom_point(aes(fill = colr), shape = 21, color = "white", size = df$size, stroke = 0.4, alpha = 0.92) +
-      scale_fill_manual(values = taxon_cols(sort(unique(df$colr)), input$pal)) +
-      labs(fill = input$net_colrank, color = "Association",
-           title = sprintf("%d taxa, %d edges (%s, |r| >= %s, FDR <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, input$net_fdr)) +
+    } else rep("taxa", nrow(df))
+    g <- ggplot(df, aes(x, y))
+    if (input$net_ecol == "sign") {
+      g <- g + geom_segment(data = e, aes(xend = xend, yend = yend, color = sign),
+                            linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab) +
+        scale_color_manual(values = c(positive = "#4DAF4A", negative = "#E41A1C"))
+    } else {
+      validate(need(grepl("^#[0-9A-Fa-f]{6}$", input$net_ecolhex), "Edge color must be a hex code like #5BA8A0."))
+      g <- g + geom_segment(data = e, aes(xend = xend, yend = yend), color = input$net_ecolhex,
+                            linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab)
+    }
+    if (input$net_nfill == "rank") {
+      g <- g + geom_point(aes(fill = colr), shape = 21, color = "grey25", size = df$size,
+                          stroke = input$net_nstroke, alpha = 0.95) +
+        scale_fill_manual(values = taxon_cols(sort(unique(df$colr)), input$pal)) +
+        labs(fill = input$net_colrank)
+    } else {
+      validate(need(grepl("^#[0-9A-Fa-f]{6}$", input$net_fcol), "Node color must be a hex code like #F0653A."))
+      g <- g + geom_point(fill = input$net_fcol, shape = 21, color = "grey25", size = df$size,
+                          stroke = input$net_nstroke, alpha = 0.95)
+    }
+    g <- g + labs(color = "Association",
+                  title = sprintf("%d taxa, %d edges (%s, |r| >= %s, FDR <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, input$net_fdr)) +
       theme_bw(base_size = 12) +
       theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
             panel.grid = element_blank(), legend.text = element_text(size = 8))
+    if (!isTRUE(input$net_leg)) g <- g + theme(legend.position = "none")
     if (input$net_hub > 0) {
       hubs <- df[order(-df$deg), ][seq_len(min(input$net_hub, nrow(df))), , drop = FALSE]
-      g <- g + (if (has("ggrepel")) ggrepel::geom_text_repel(data = hubs, aes(x, y, label = name), size = 3, show.legend = FALSE)
-                else geom_text(data = hubs, aes(x, y, label = name), size = 3, show.legend = FALSE))
+      labs_b <- hubs$name
+      if (input$net_lfmt == "both") labs_b <- paste0(hubs$name, " - ", hubs$colr)
+      g <- g + (if (has("ggrepel")) ggrepel::geom_text_repel(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, show.legend = FALSE)
+                else geom_text(data = hubs, aes(x, y, label = labs_b), size = input$net_lbls_b, show.legend = FALSE))
     }
     g
   })
