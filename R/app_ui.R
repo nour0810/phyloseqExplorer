@@ -168,6 +168,22 @@ fluidPage(
               column(2, radioButtons("net_nsizeb", "Node size (B)", c("Reads" = "reads", "Degree" = "deg"), inline = TRUE)),
               column(2, numericInput("net_hub", "Label top N hubs (B)", 10, 0, 50)),
               column(2, selectInput("net_colrank", "Node color rank (B)", NULL))),
+            tags$hr(),
+            tags$small(strong("Figure style (B)")),
+            fluidRow(
+              column(2, radioButtons("net_nfill", "Node fill", c("By rank" = "rank", "Single" = "one"), inline = TRUE)),
+              column(2, textInput("net_fcol", "Node hex", "#F0653A")),
+              column(2, selectInput("net_ecol", "Edge color", c("By sign" = "sign", "Custom" = "one"))),
+              column(2, textInput("net_ecolhex", "Edge hex", "#5BA8A0")),
+              column(2, selectInput("net_lfmt", "Label", c("Name" = "name", "Name - rank" = "both"))),
+              column(2, checkboxInput("net_leg", "Legend", TRUE))),
+            fluidRow(
+              column(2, sliderInput("net_nscale", "Node size x", 0.5, 3, 1, 0.1)),
+              column(2, sliderInput("net_nstroke", "Node border", 0, 2, 0.6, 0.1)),
+              column(2, numericInput("net_lbls_b", "Label size", 3.2, 1, 8)),
+              column(2, sliderInput("net_ewb", "Edge width x", 0.2, 3, 1, 0.1)),
+              column(2, sliderInput("net_eab", "Edge alpha", 0.1, 1, 0.6, 0.05)),
+              column(2, br())),
             plotOutput("net_plot", height = "620px"),
             dl_row("dl_net", "xl_net"),
             tabsetPanel(
