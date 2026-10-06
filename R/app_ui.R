@@ -9,9 +9,9 @@ fluidPage(
   titlePanel(
     div(
       "phyloseq Explorer",
-      div(style = "font-size:12px; color:#666; font-weight:normal; margin-top:2px;",
+      div(style = "font-size:16px; color:#444; font-weight:normal; margin-top:3px;",
           "\u00A9 2026 Mathlouthi Nourelhouda (TN)  ",
-          span(style = "font-size:13px;", "\U0001F1F9\U0001F1F3"))
+          span(style = "font-size:16px;", "\U0001F1F9\U0001F1F3"))
     )
   ),
   sidebarLayout(
