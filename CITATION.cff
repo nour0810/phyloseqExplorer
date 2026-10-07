@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+## Citation
+
+Mathlouthi, N. (2026). *phyloseqExplorer: Interactive exploration and publication-ready analysis of phyloseq objects* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.23210146
+authors:
+- family-names: Mathlouthi
+  given-names: Nourelhouda
+  orcid: https://orcid.org/0000-0002-2210-1932
+title: "phyloseqExplorer: interactive offline analysis of phyloseq objects"
+version: 1.0.0
+doi: 10.5281/zenodo.23210146
+date-released: 2026-10-07
+url: https://github.com/nour0810/phyloseqExplorer
+license: MIT
