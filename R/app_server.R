@@ -1129,6 +1129,19 @@ app_server <- function(input, output, session) {
   }
   cor_fill("cor_srcA", "cor_rankA", "cor_taxA", all_default = FALSE)
   cor_fill("cor_srcB", "cor_rankB", "cor_taxB", all_default = TRUE)
+  cor_all_names <- function(src, rank) {
+    p <- if (src == "d2") net_second() else ps_f()
+    req(p, rank)
+    tt <- tax_mat(p); ot <- otu_mat(p)
+    agg <- if (rank == "(ASV)") rowSums(ot) else rowSums(rowsum(ot, group = tt[, rank], reorder = FALSE))
+    names(sort(agg, decreasing = TRUE))
+  }
+  observeEvent(input$cor_allA, updateSelectizeInput(session, "cor_taxA",
+    selected = cor_all_names(if (is.null(input$cor_srcA)) "d1" else input$cor_srcA, input$cor_rankA)))
+  observeEvent(input$cor_clrA, updateSelectizeInput(session, "cor_taxA", selected = character(0)))
+  observeEvent(input$cor_allB, updateSelectizeInput(session, "cor_taxB",
+    selected = cor_all_names(if (is.null(input$cor_srcB)) "d1" else input$cor_srcB, input$cor_rankB)))
+  observeEvent(input$cor_clrB, updateSelectizeInput(session, "cor_taxB", selected = character(0)))
 
   cor2 <- reactive({
     req(input$cor_rankA, input$cor_rankB, length(input$cor_taxA) >= 1, length(input$cor_taxB) >= 1)

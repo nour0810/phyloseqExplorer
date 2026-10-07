@@ -221,11 +221,15 @@ fluidPage(
           fluidRow(
             column(2, radioButtons("cor_srcA", "A: dataset", c("Dataset 1" = "d1", "Dataset 2" = "d2"), inline = TRUE)),
             column(2, selectInput("cor_rankA", "A: rank", NULL)),
-            column(4, selectizeInput("cor_taxA", "A: taxa (pick 1+)", NULL, multiple = TRUE)),
+            column(4, selectizeInput("cor_taxA", "A: taxa (pick 1+)", NULL, multiple = TRUE),
+                   actionButton("cor_allA", "Select all", class = "btn-xs"),
+                   actionButton("cor_clrA", "Clear", class = "btn-xs")),
             column(2, radioButtons("cor_srcB", "B: dataset", c("Dataset 1" = "d1", "Dataset 2" = "d2"), inline = TRUE)),
             column(2, selectInput("cor_rankB", "B: rank", NULL))),
           fluidRow(
-            column(4, selectizeInput("cor_taxB", "B: ALL taxa at this rank (deselect to trim)", NULL, multiple = TRUE)),
+            column(4, selectizeInput("cor_taxB", "B: ALL taxa at this rank (trim if needed)", NULL, multiple = TRUE),
+                   actionButton("cor_allB", "Select all", class = "btn-xs"),
+                   actionButton("cor_clrB", "Clear", class = "btn-xs")),
             column(2, selectInput("cor_meth", "Method", c("spearman", "pearson", "kendall"))),
             column(2, numericInput("cor_minab", "Min rel. % (both)", 0.01, 0, 100, step = 0.01)),
             column(2, br(), downloadButton("xl_cor", "Excel table", class = "btn-sm")),
