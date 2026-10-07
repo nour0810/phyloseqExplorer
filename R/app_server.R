@@ -1102,6 +1102,94 @@ app_server <- function(input, output, session) {
          Corr_r_stars = cm$r, Corr_p_raw = cm$p, Corr_p_BH = cm$padj) }, "rda_results")
 
   # =================================================================
+  # =================================================================
+  # TAXON-LEVEL BIVARIATE CORRELATIONS (within or across datasets)
+  # =================================================================
+  cor_ds <- function(src) if (src == "d2") net_second() else ps_f()
+
+  cor_fill <- function(srcId, rankId, taxId) {
+    observeEvent(list(input[[srcId]], ps_f(), net_second()), {
+      p <- if (is.null(input[[srcId]]) || input[[srcId]] == "d1") ps_f() else net_second()
+      if (is.null(p)) { updateSelectInput(session, rankId, choices = "(none)"); return() }
+      rk <- rank_names(p)
+      updateSelectInput(session, rankId, choices = c("(ASV)", rk), selected = rk[min(5, length(rk))])
+    }, ignoreInit = TRUE)
+    observeEvent(list(input[[rankId]], input[[srcId]], ps_f(), net_second()), {
+      p <- if (is.null(input[[srcId]]) || input[[srcId]] == "d1") ps_f() else net_second()
+      req(p, input[[rankId]])
+      if (input[[rankId]] == "(none)") return()
+      tt <- tax_mat(p); ot <- otu_mat(p)
+      agg <- if (input[[rankId]] == "(ASV)") rowSums(ot) else
+        rowSums(rowsum(ot, group = tt[, input[[rankId]]], reorder = FALSE))
+      ch <- names(sort(agg, decreasing = TRUE))
+      cur <- isolate(input[[taxId]])
+      updateSelectizeInput(session, taxId, choices = ch,
+                           selected = if (length(cur)) intersect(cur, ch) else head(ch, 1))
+    }, ignoreInit = TRUE)
+  }
+  cor_fill("cor_srcA", "cor_rankA", "cor_taxA")
+  cor_fill("cor_srcB", "cor_rankB", "cor_taxB")
+
+  cor2 <- reactive({
+    req(input$cor_rankA, input$cor_rankB, length(input$cor_taxA) >= 1, length(input$cor_taxB) >= 1)
+    pA <- cor_ds(if (is.null(input$cor_srcA)) "d1" else input$cor_srcA)
+    pB <- cor_ds(if (is.null(input$cor_srcB)) "d1" else input$cor_srcB)
+    req(pA, pB)
+    common <- intersect(sample_names(pA), sample_names(pB))
+    validate(need(length(common) >= 4, "Need >= 4 shared samples between the selected datasets."))
+    getm <- function(p, rank, tax) {
+      tt <- tax_mat(p); ot <- otu_mat(p)
+      if (rank == "(ASV)") {
+        m <- ot[intersect(tax, rownames(ot)), common, drop = FALSE]
+      } else {
+        asvs <- rownames(tt)[tt[, rank] %in% tax]
+        m <- rowsum(ot[asvs, common, drop = FALSE], group = tt[asvs, rank], reorder = FALSE)
+        m <- m[intersect(tax, rownames(m)), , drop = FALSE]
+      }
+      rel <- sweep(m, 2, pmax(colSums(m), 1e-12), "/") * 100
+      rel[rowSums(rel >= input$cor_minab) > 0, , drop = FALSE]
+    }
+    mA <- getm(pA, input$cor_rankA, input$cor_taxA)
+    mB <- getm(pB, input$cor_rankB, input$cor_taxB)
+    validate(need(nrow(mA) > 0 && nrow(mB) > 0, "No taxa passed the selection / min-% filters."))
+    long <- NULL
+    for (ia in seq_len(nrow(mA))) for (ib in seq_len(nrow(mB))) {
+      ct <- suppressWarnings(cor.test(mA[ia, ], mB[ib, ], method = input$cor_meth, exact = FALSE))
+      long <- rbind(long, data.frame(A = rownames(mA)[ia], B = rownames(mB)[ib],
+                                     r = unname(ct$estimate), p_value = ct$p.value, stringsAsFactors = FALSE))
+    }
+    long$p_adj_BH <- p.adjust(long$p_value, "BH")
+    use_adj <- is.null(input$padj_mode) || input$padj_mode == "bh"
+    long$Stars <- stars_blank(if (use_adj) long$p_adj_BH else long$p_value)
+    list(long = long, use_adj = use_adj)
+  })
+
+  cor2_gg <- reactive({
+    L <- cor2()$long
+    L$A <- factor(L$A, levels = unique(L$A))
+    L$B <- factor(L$B, levels = rev(unique(L$B)))
+    g <- ggplot(L, aes(A, B, fill = r)) + geom_tile(color = "white") +
+      scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", limits = c(-1, 1), name = "r") +
+      labs(x = paste0("A (", input$cor_rankA, ")"), y = paste0("B (", input$cor_rankB, ")"),
+           title = sprintf("%s correlations, %d x %d pairs", input$cor_meth, nlevels(L$A), nlevels(L$B))) +
+      theme_void(base_size = 12) +
+      theme(legend.text = element_text(size = 8),
+            axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+            axis.text.y = element_text(size = 8))
+    if (isTRUE(input$cor_lbl)) g <- g + geom_text(aes(label = paste0(round(r, 2), Stars)), size = 3)
+    g
+  })
+  output$cor_plot <- renderPlot(show_gg(cor2_gg()))
+  output$cor_tbl <- renderDT(enc_safe({
+    L <- cor2()$long
+    L$r <- round(L$r, 3); L$p_value <- signif(L$p_value, 4); L$p_adj_BH <- signif(L$p_adj_BH, 4)
+    dt(L)
+  }))
+  dl_gg("dl_cor_fig", cor2_gg, "taxon_correlations")
+  dl_xl("xl_cor", function() list(Correlations = cor2()$long), "taxon_correlations")
+  output$pkg_cor <- renderUI(pkg_line(c("stats", "ggplot2", "DT")))
+
+  # =================================================================
   # TAXA TABLES
   # =================================================================
   tax_df <- reactive({

@@ -216,6 +216,24 @@ fluidPage(
               tabPanel("Edges", DTOutput("net_edge_t")), tabPanel("Nodes", DTOutput("net_node_t"))),
               uiOutput("pkg_net"))
           else div(class = "alert alert-warning", "Install 'igraph' for network analysis: install.packages('igraph'")),
+        # ---------------- Taxon correlations (bivariate, within or across datasets)
+        tabPanel("Correlations (taxa)", br(),
+          fluidRow(
+            column(2, radioButtons("cor_srcA", "A: dataset", c("Dataset 1" = "d1", "Dataset 2" = "d2"), inline = TRUE)),
+            column(2, selectInput("cor_rankA", "A: rank", NULL)),
+            column(4, selectizeInput("cor_taxA", "A: taxa (pick 1+)", NULL, multiple = TRUE)),
+            column(2, radioButtons("cor_srcB", "B: dataset", c("Dataset 1" = "d1", "Dataset 2" = "d2"), inline = TRUE)),
+            column(2, selectInput("cor_rankB", "B: rank", NULL))),
+          fluidRow(
+            column(4, selectizeInput("cor_taxB", "B: taxa (pick 1+)", NULL, multiple = TRUE)),
+            column(2, selectInput("cor_meth", "Method", c("spearman", "pearson", "kendall"))),
+            column(2, numericInput("cor_minab", "Min rel. % (both)", 0.01, 0, 100, step = 0.01)),
+            column(2, checkboxInput("cor_lbl", "Show r + stars", TRUE)),
+            column(2, br())),
+          plotOutput("cor_plot", height = "560px"),
+          dl_row("dl_cor_fig", "xl_cor"),
+          DTOutput("cor_tbl"),
+          uiOutput("pkg_cor")),
         # ---------------- Environment
         tabPanel("Environment (RDA)", br(),
           fluidRow(column(4, selectizeInput("env_vars", "Numeric environmental variables (from metadata)", NULL, multiple = TRUE)),
