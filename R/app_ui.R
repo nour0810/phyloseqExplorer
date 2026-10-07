@@ -225,7 +225,8 @@ fluidPage(
           tabsetPanel(
             tabPanel("Model", DTOutput("e_model")), tabPanel("ANOVA global", DTOutput("e_glob")),
             tabPanel("ANOVA margin", DTOutput("e_marg")), tabPanel("VIF", DTOutput("e_vif")),
-            tabPanel("Candidate R2", DTOutput("e_cand")), tabPanel("Correlations", DTOutput("e_cor")))),
+            tabPanel("Candidate R2", DTOutput("e_cand")), tabPanel("Correlations (r + stars)", DTOutput("e_cor")),
+            tabPanel("Correlations (p-values)", DTOutput("e_cor_p")))),
         # ---------------- Tables
         tabPanel("Taxa tables", br(),
           h5("ASV table (taxonomy, reads, prevalence, sequence)"),

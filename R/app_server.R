@@ -1054,6 +1054,11 @@ app_server <- function(input, output, session) {
     list(r = add(rs), p = add(pp), padj = add(pa))
   })
   output$e_cor <- renderDT(enc_safe(dt(cor_mats()$r)))
+  output$e_cor_p <- renderDT(enc_safe({
+    L <- rda_run()$long
+    L$r <- round(L$r, 3); L$p_value <- signif(L$p_value, 4); L$p_adj_BH <- signif(L$p_adj_BH, 4)
+    dt(L[, c("Taxon", "Variable", "r", "p_value", "p_adj_BH", "Stars")])
+  }))
   dl_xl("xl_rda", function() { r <- rda_run(); cm <- cor_mats(); wrap <- function(x) if (is.null(x)) NULL else data.frame(Term = rownames(x), x, check.names = FALSE)
     list(Model_summary = r$stats, ANOVA_global = wrap(r$glob), ANOVA_margin = wrap(r$marg),
          VIF = data.frame(Variable = unname(r$lab_map[names(r$vif)]), VIF = round(as.numeric(r$vif), 3)),
