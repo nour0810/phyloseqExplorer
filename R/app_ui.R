@@ -48,6 +48,7 @@ fluidPage(
                     c("Set1-seeded max-min (60)" = "set1_60", "Contrasting (30)" = "contrast",
                       "ggplot hue" = "hue", "Viridis" = "viridis")),
         radioButtons("fmt", "Figure format", c("svg", "png", "pdf", "tiff"), inline = TRUE),
+        radioButtons("padj_mode", "P-values in tests", c("BH-adjusted" = "bh", "Raw p" = "raw"), inline = TRUE),
         numericInput("ex_w", "Width (in)", 12, min = 3), numericInput("ex_h", "Height (in)", 6, min = 3),
         numericInput("ex_dpi", "DPI (png)", 300, min = 72)
       ),

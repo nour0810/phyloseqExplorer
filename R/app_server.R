@@ -465,11 +465,12 @@ app_server <- function(input, output, session) {
         kw <- kruskal.test(value ~ Group, data = di)
         glob[[idx]] <- data.frame(Index = idx, Test = "Kruskal-Wallis", Statistic = round(unname(kw$statistic), 4), df1 = unname(kw$parameter), df2 = NA,
                                   p_value = signif(kw$p.value, 4), Interpretation = ifelse(kw$p.value < 0.05, "Significant", "Not significant"))
-        pw <- tryCatch(pairwise.wilcox.test(di$value, di$Group, p.adjust.method = "BH", exact = FALSE)$p.value, error = function(e) NULL)
+        pmode <- if (is.null(input$padj_mode) || input$padj_mode == "bh") "BH" else "none"
+        pw <- tryCatch(pairwise.wilcox.test(di$value, di$Group, p.adjust.method = pmode, exact = FALSE)$p.value, error = function(e) NULL)
         if (!is.null(pw)) {
           pl <- as.data.frame(as.table(pw)); pl <- pl[!is.na(pl$Freq), ]
           if (nrow(pl)) post[[idx]] <- data.frame(Index = idx, Comparison = paste(pl$Var2, "vs", pl$Var1), Difference = NA, Lower_CI = NA, Upper_CI = NA,
-                                                   p_adj = pl$Freq, Method = "Pairwise Wilcoxon (BH)", Significance = stars(pl$Freq))
+                                                   p_adj = pl$Freq, Method = if (pmode == "BH") "Pairwise Wilcoxon (BH)" else "Pairwise Wilcoxon (raw p)", Significance = stars(pl$Freq))
         }
         meth[idx] <- "np"
       }
@@ -619,7 +620,12 @@ app_server <- function(input, output, session) {
       r <- tryCatch(vegan::adonis2(as.dist(dm[keep, keep]) ~ g, data = data.frame(g = droplevels(df$F1[keep])), permutations = n), error = function(e) NULL)
       if (!is.null(r)) pair <- rbind(pair, data.frame(Comparison = paste(lv[i], "vs", lv[j]), R2 = r$R2[1], F = r$F[1], p = r$`Pr(>F)`[1]))
     }
-    if (!is.null(pair)) { pair$p_adj_BH <- p.adjust(pair$p, "BH"); pair$Significance <- stars(pair$p) }
+    if (!is.null(pair)) {
+      pair$p_adj_BH <- p.adjust(pair$p, "BH")
+      show_adj <- is.null(input$padj_mode) || input$padj_mode == "bh"
+      pair$p_used <- if (show_adj) pair$p_adj_BH else pair$p
+      pair$Significance <- stars(pair$p_used)
+    }
     meth <- data.frame(Parameter = c("Total ASVs", "ASVs retained (cumulative cutoff)", "Percentage of reads retained", "Transformation",
                                      "Distance", "Ordination", "PCoA axis 1 variance", "PCoA axis 2 variance", "Permutations"),
                        Value = c(b$n_all, b$n_ret, sprintf("%.2f%%", b$pct_ret), input$b_trans, input$b_dist, "PCoA",
@@ -725,10 +731,13 @@ app_server <- function(input, output, session) {
       pm[i, j] <- ct$p.value
     }
     padj <- matrix(p.adjust(as.vector(pm), "BH"), n, n, dimnames = dimnames(rr))
-    ij <- which(abs(rr) >= input$net_r & padj <= input$net_fdr, arr.ind = TRUE)
+    use_adjp <- is.null(input$padj_mode) || input$padj_mode == "bh"
+    pv <- if (use_adjp) padj else pm
+    ij <- which(abs(rr) >= input$net_r & pv <= input$net_fdr, arr.ind = TRUE)
     ij <- ij[ij[, 1] < ij[, 2], , drop = FALSE]
     edges <- data.frame(from = rownames(rr)[ij[, 1]], to = colnames(rr)[ij[, 2]],
-                        r = round(rr[ij], 3), p_adj = signif(padj[ij], 4), stringsAsFactors = FALSE)
+                        r = round(rr[ij], 3), p_value = signif(pm[ij], 4),
+                        p_adj_BH = signif(padj[ij], 4), stringsAsFactors = FALSE)
     edges$sign <- ifelse(edges$r > 0, "positive", "negative")
     if (input$net_edge == "pos") edges <- edges[edges$r > 0, , drop = FALSE]
     if (input$net_edge == "neg") edges <- edges[edges$r < 0, , drop = FALSE]
@@ -740,7 +749,7 @@ app_server <- function(input, output, session) {
     edges <- edges[edges$from %in% vn & edges$to %in% vn, , drop = FALSE]
     validate(need(nrow(edges) > 0 && length(vn) > 0, "No nodes left after the degree filter - lower 'Min degree (B)'."))
     lay <- net_layout(g, tolower(trimws(input$net_lay)), input$net_seed); lay$name <- vn
-    list(g = g, lay = lay, edges = edges, cnt = cnt, p = p)
+    list(g = g, lay = lay, edges = edges, cnt = cnt, p = p, use_adjp = use_adjp)
   })
   netB_gg <- reactive({
     n <- netB(); df <- n$lay; e <- n$edges
@@ -777,7 +786,7 @@ app_server <- function(input, output, session) {
                           stroke = input$net_nstroke, alpha = 0.95)
     }
     ttl <- if (nzchar(trimws(input$net_title))) trimws(input$net_title) else
-      sprintf("%d taxa, %d edges (%s, |r| >= %s, FDR <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, input$net_fdr)
+      sprintf("%d taxa, %d edges (%s, |r| >= %s, %s <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, ifelse(isTRUE(n$use_adjp), "p_adj(BH)", "p_raw"), input$net_fdr)
     g <- g + labs(color = "Association", title = ttl) +
       theme_void(base_size = 12) +
       theme(legend.text = element_text(size = 8))
@@ -887,7 +896,9 @@ app_server <- function(input, output, session) {
       long <- rbind(long, data.frame(Taxon = tx, Variable = unname(lab_map[vn]), r = if (is.null(ct)) NA else unname(ct$estimate),
                                      p_value = if (is.null(ct)) NA else ct$p.value, stringsAsFactors = FALSE))
     }
-    long$p_adj_BH <- p.adjust(long$p_value, "BH"); long$Stars <- stars_blank(long$p_adj_BH)
+    long$p_adj_BH <- p.adjust(long$p_value, "BH")
+    use_adj_r <- is.null(input$padj_mode) || input$padj_mode == "bh"
+    long$Stars <- stars_blank(if (use_adj_r) long$p_adj_BH else long$p_value)
     stats_df <- data.frame(Variables_final = paste(unname(lab_map[names(envs)]), collapse = ", "),
                            Removed_by_collinearity = paste(dropped$Variable, collapse = ", "), Removed_by_VIF = paste(vif_removed, collapse = ", "),
                            R2 = round(unname(ra$r.squared), 4), Adj_R2 = round(unname(ra$adj.r.squared), 4),
@@ -895,7 +906,8 @@ app_server <- function(input, output, session) {
                            Axis2_type = if (length(mod$CCA$eig) >= 2) "constrained (RDA2)" else "first unconstrained (PC1)",
                            row.names = NULL)
     list(mod = mod, sites = sites, spec = spec, bp = bp, axn = axn, pct = pct, mean_pct = mean_pct, long = long, lab_map = lab_map,
-         stats = stats_df, glob = glob, marg = marg, vif = vf, cand = cand_df, dropped = dropped, p = p, level = input$env_level)
+         stats = stats_df, glob = glob, marg = marg, vif = vf, cand = cand_df, dropped = dropped, p = p,
+         level = input$env_level, use_adj = use_adj_r)
   })
 
   rda_gg <- reactive({
@@ -940,7 +952,7 @@ app_server <- function(input, output, session) {
     L <- rda_run()$long; L$Taxon <- factor(L$Taxon, levels = rev(unique(L$Taxon)))
     ggplot(L, aes(Variable, Taxon, fill = r)) + geom_tile(color = "white") + geom_text(aes(label = Stars), size = 4) +
       scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", limits = c(-1, 1), name = "Pearson r") +
-      labs(x = NULL, y = NULL, caption = "* p_adj<=0.05  ** <=0.01  *** <=0.001 (BH)") + theme_minimal(base_size = 11) +
+      labs(x = NULL, y = NULL, caption = if (isTRUE(rda_run()$use_adj)) "* p<=0.05  ** <=0.01  *** <=0.001 (BH-adjusted)" else "* p<=0.05  ** <=0.01  *** <=0.001 (raw p-values)") + theme_minimal(base_size = 11) +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
   })
   output$cor_plot <- renderPlot(show_gg(cor_gg()))
