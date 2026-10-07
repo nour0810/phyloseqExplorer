@@ -165,7 +165,8 @@ fluidPage(
             fluidRow(
               column(2, numericInput("net_minpct", "Min total reads %", 0, 0, 100, step = 0.01)),
               column(2, numericInput("net_minreads", "Min abundance (reads)", 0, 0, 1e9)),
-              column(8, helpText("Filters by total contribution: '% of all reads' and absolute read count. Applied before Top N."))),
+              column(2, selectInput("net_puse", "Filter edges by p", c("BH-adjusted" = "bh", "Raw p" = "raw"))),
+              column(6, helpText("Min total reads % / Min abundance: total-contribution filters (before Top N). 'Filter edges by p' decides which p-value the cutoff slider below applies to (overrides the sidebar default for this tab)."))),
             fluidRow(
               column(2, sliderInput("net_fdr", "FDR cutoff (B)", 0.001, 0.2, 0.05, 0.001)),
               column(2, selectInput("net_edge", "Edges (B)", c("Both signs" = "both", "Positive" = "pos", "Negative" = "neg"))),

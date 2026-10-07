@@ -731,7 +731,8 @@ app_server <- function(input, output, session) {
       pm[i, j] <- ct$p.value
     }
     padj <- matrix(p.adjust(as.vector(pm), "BH"), n, n, dimnames = dimnames(rr))
-    use_adjp <- is.null(input$padj_mode) || input$padj_mode == "bh"
+    use_adjp <- if (!is.null(input$net_puse)) input$net_puse == "bh"
+                else is.null(input$padj_mode) || input$padj_mode == "bh"
     pv <- if (use_adjp) padj else pm
     ij <- which(abs(rr) >= input$net_r & pv <= input$net_fdr, arr.ind = TRUE)
     ij <- ij[ij[, 1] < ij[, 2], , drop = FALSE]
