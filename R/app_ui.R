@@ -148,7 +148,7 @@ fluidPage(
               column(2, selectInput("net_shp", "Node shape (A)", "None")),
               column(2, radioButtons("net_nsize", "Node size (A)", c("Reads" = "reads", "Uniform" = "uni"), inline = TRUE))),
             fluidRow(
-              column(2, textInput("net_lay", "Layout (fr/kk/circle/grid/random)", "fr")),
+              column(2, textInput("net_lay", "Layout (fr/kk/circle/graphopt/mds/grid)", "graphopt")),
               column(2, numericInput("net_seed", "Layout seed", 42, 1, 1e6)),
               column(2, checkboxInput("net_lbl", "Label samples (A)", TRUE)),
               column(2, numericInput("net_lbls", "Label size (A)", 3, 1, 8)),
@@ -193,6 +193,7 @@ fluidPage(
             fluidRow(
               column(2, sliderInput("net_curv", "Edge curve", 0, 0.5, 0.15, 0.05)),
               column(2, checkboxInput("net_bold", "Bold labels", TRUE)),
+              column(2, checkboxInput("net_eq", "Equal aspect", TRUE)),
               column(2, textInput("net_title", "Custom title", "")),
               column(6, helpText("Custom title replaces the stats line, e.g.: Identifying nodes with degree > 3 at the genus level (all connections were positive)"))),
             plotOutput("net_plot", height = "620px"),

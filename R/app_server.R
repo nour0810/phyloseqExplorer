@@ -646,11 +646,13 @@ app_server <- function(input, output, session) {
   net_layout <- function(g, lay, seed) {
     set.seed(seed)
     m <- switch(lay,
-                fr     = igraph::layout_with_fr(g),
-                kk     = igraph::layout_with_kk(g),
-                circle = igraph::layout_in_circle(g),
-                grid   = igraph::layout_on_grid(g),
-                random = igraph::layout_randomly(g),
+                fr      = igraph::layout_with_fr(g),
+                kk      = igraph::layout_with_kk(g),
+                circle  = igraph::layout_in_circle(g),
+                grid    = igraph::layout_on_grid(g),
+                random  = igraph::layout_randomly(g),
+                graphopt = igraph::layout_with_graphopt(g),
+                mds     = igraph::layout_with_mds(g),
                 igraph::layout_with_fr(g))
     df <- as.data.frame(m[, 1:2]); names(df) <- c("x", "y"); df
   }
@@ -792,6 +794,7 @@ app_server <- function(input, output, session) {
       theme_void(base_size = 12) +
       theme(legend.text = element_text(size = 8))
     if (!isTRUE(input$net_leg)) g <- g + theme(legend.position = "none")
+    if (isTRUE(input$net_eq)) g <- g + coord_equal(clip = "off")
     if (input$net_hub > 0) {
       hubs <- df[order(-df$deg), ][seq_len(min(input$net_hub, nrow(df))), , drop = FALSE]
       labs_b <- hubs$name
