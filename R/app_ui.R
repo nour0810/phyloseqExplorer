@@ -141,6 +141,12 @@ fluidPage(
           if (has("igraph")) tagList(
             fluidRow(column(2, selectInput("net_mode", "Mode", c("Sample similarity (A)" = "sample", "Taxon co-occurrence (B)" = "cooc")))),
             fluidRow(
+              column(3, fileInput("net_file2", "Second dataset (optional: .rds/.RData)")),
+              column(2, selectInput("net_rank2", "2nd: rank", NULL)),
+              column(4, selectizeInput("net_tax2", "2nd: taxa to include (pick from list)", NULL, multiple = TRUE)),
+              column(2, numericInput("net_min2", "2nd: min reads", 100, 0, 1e9)),
+              column(1, checkboxInput("net_shape2", "Triangles = 2nd", TRUE))),
+            fluidRow(
               column(2, selectInput("net_dist", "Distance (A)", c("bray", "jaccard", "euclidean", "manhattan", "canberra"))),
               column(2, sliderInput("net_maxd", "Edge: max dist (A)", 0.05, 0.95, 0.4, 0.05)),
               column(2, checkboxInput("net_isol", "Keep isolated samples (A)", TRUE)),

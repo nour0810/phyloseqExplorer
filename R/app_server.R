@@ -643,6 +643,29 @@ app_server <- function(input, output, session) {
   # =================================================================
   # NETWORK ANALYSIS (igraph + ggplot; sample similarity & co-occurrence)
   # =================================================================
+  # ---- second dataset for combined (cross-kingdom) networks ----------------
+  net_second <- reactiveVal(NULL)
+  observeEvent(input$net_file2, {
+    req(input$net_file2)
+    p2 <- tryCatch({ p <- load_phyloseq(input$net_file2$datapath); fix_ps(p) },
+                   error = function(e) { showNotification(conditionMessage(e), type = "error", duration = NULL); NULL })
+    if (!is.null(p2)) {
+      net_second(p2)
+      rk <- rank_names(p2)
+      updateSelectInput(session, "net_rank2", choices = c("(ASV)", rk), selected = rk[min(5, length(rk))])
+    }
+  })
+  observeEvent(list(input$net_rank2, net_second()), {
+    p2 <- net_second(); req(p2, input$net_rank2)
+    tt2 <- tax_mat(p2); ot2 <- otu_mat(p2)
+    agg <- if (input$net_rank2 == "(ASV)") rowSums(ot2) else
+      rowSums(rowsum(ot2, group = tt2[, input$net_rank2], reorder = FALSE))
+    ch <- names(sort(agg, decreasing = TRUE))
+    cur <- isolate(input$net_tax2)
+    updateSelectizeInput(session, "net_tax2", choices = ch,
+                         selected = if (is.null(cur) || !length(cur)) head(ch, 20) else intersect(cur, ch))
+  }, ignoreInit = TRUE)
+
   net_layout <- function(g, lay, seed) {
     set.seed(seed)
     m <- switch(lay,
@@ -671,6 +694,17 @@ app_server <- function(input, output, session) {
     req(input$net_mode == "sample"); p <- ps_f()
     validate(need(nsamples(p) >= 3, "Need >= 3 samples."))
     X <- t(otu_mat(p))
+    p2 <- net_second()
+    if (!is.null(p2) && length(input$net_tax2)) {
+      common <- intersect(rownames(X), sample_names(p2))
+      validate(need(length(common) >= 3, "Combining datasets: need >= 3 shared sample names between the two phyloseq objects."))
+      X <- X[common, , drop = FALSE]
+      ot2 <- otu_mat(p2); tt2 <- tax_mat(p2)
+      sel2 <- if (input$net_rank2 == "(ASV)") intersect(input$net_tax2, rownames(ot2)) else
+        rownames(tt2)[tt2[, input$net_rank2] %in% input$net_tax2]
+      validate(need(length(sel2) > 0, "No dataset-2 taxa matched your selection."))
+      X <- cbind(X, t(ot2[sel2, common, drop = FALSE]))
+    }
     d <- vegan::vegdist(X, method = input$net_dist, binary = input$net_dist == "jaccard")
     dm <- as.matrix(d); nm <- rownames(dm)
     ij <- which(dm <= input$net_maxd, arr.ind = TRUE)
@@ -716,6 +750,29 @@ app_server <- function(input, output, session) {
   netB <- reactive({
     req(input$net_mode == "cooc", input$net_rank); p <- ps_f()
     cnt <- agg_matrix(p, input$net_rank)
+    ds_lab <- setNames(rep("dataset 1", nrow(cnt)), rownames(cnt))
+    p2 <- net_second()
+    if (!is.null(p2) && length(input$net_tax2)) {
+      common <- intersect(colnames(cnt), sample_names(p2))
+      validate(need(length(common) >= 4, "Combining datasets: need >= 4 shared sample names between the two phyloseq objects."))
+      cnt <- cnt[, common, drop = FALSE]
+      ot2 <- otu_mat(p2)[, common, drop = FALSE]
+      tt2 <- tax_mat(p2)
+      if (input$net_rank2 == "(ASV)") {
+        sel2 <- intersect(input$net_tax2, rownames(ot2))
+        m2 <- ot2[sel2, , drop = FALSE]
+      } else {
+        asvs2 <- rownames(tt2)[tt2[, input$net_rank2] %in% input$net_tax2]
+        asvs2 <- asvs2[rowSums(ot2[asvs2, , drop = FALSE]) >= input$net_min2]
+        m2 <- rowsum(ot2[asvs2, , drop = FALSE], group = tt2[asvs2, input$net_rank2], reorder = FALSE)
+      }
+      validate(need(nrow(m2) > 0, "No dataset-2 taxa passed your selection/filters."))
+      nm2 <- rownames(m2)
+      nm2 <- ifelse(nm2 %in% rownames(cnt), paste0(nm2, " (2)"), nm2)
+      rownames(m2) <- nm2
+      cnt <- rbind(cnt, m2)
+      ds_lab <- c(ds_lab, setNames(rep("dataset 2", nrow(m2)), nm2))
+    }
     tot_all <- sum(cnt)
     cnt <- cnt[rowSums(cnt) / tot_all * 100 >= input$net_minpct, , drop = FALSE]
     cnt <- cnt[rowSums(cnt) >= input$net_minreads, , drop = FALSE]
@@ -752,17 +809,28 @@ app_server <- function(input, output, session) {
     edges <- edges[edges$from %in% vn & edges$to %in% vn, , drop = FALSE]
     validate(need(nrow(edges) > 0 && length(vn) > 0, "No nodes left after the degree filter - lower 'Min degree (B)'."))
     lay <- net_layout(g, tolower(trimws(input$net_lay)), input$net_seed); lay$name <- vn
-    list(g = g, lay = lay, edges = edges, cnt = cnt, p = p, use_adjp = use_adjp)
+    list(g = g, lay = lay, edges = edges, cnt = cnt, p = p, use_adjp = use_adjp,
+         ds = ds_lab[rownames(cnt)])
   })
   netB_gg <- reactive({
     n <- netB(); df <- n$lay; e <- n$edges
     df$deg <- as.numeric(igraph::degree(n$g)[df$name])
+    df$ds <- unname(n$ds[df$name]); df$ds[is.na(df$ds)] <- "dataset 1"
+    has2 <- any(df$ds == "dataset 2")
+    pt_shape <- if (has2 && isTRUE(input$net_shape2)) ifelse(df$ds == "dataset 2", 24, 21) else 21
     df$size <- (if (input$net_nsizeb == "deg") net_scale(df$deg) else net_scale(sqrt(as.numeric(rowSums(n$cnt)[df$name])))) * input$net_nscale
     e$x <- df$x[match(e$from, df$name)]; e$y <- df$y[match(e$from, df$name)]
     e$xend <- df$x[match(e$to, df$name)]; e$yend <- df$y[match(e$to, df$name)]
     tt <- tax_mat(n$p)
+    p2g <- net_second()
+    tt2g <- if (!is.null(p2g)) tax_mat(p2g) else NULL
     df$colr <- if (input$net_colrank %in% colnames(tt)) {
       vapply(df$name, function(lb) {
+        if (df$ds[df$name == lb][1] == "dataset 2" && !is.null(tt2g) && input$net_colrank %in% colnames(tt2g)) {
+          vals <- tt2g[rownames(tt2g)[tt2g[, input$net_rank2] == lb], input$net_colrank]
+          vals <- vals[!is.na(vals)]
+          if (length(vals)) return(names(sort(table(vals), decreasing = TRUE))[1])
+        }
         asvs <- rownames(tt)[tt[, input$net_rank] == lb]
         vals <- tt[asvs, input$net_colrank]; vals <- vals[!is.na(vals)]
         if (length(vals)) names(sort(table(vals), decreasing = TRUE))[1] else "Unknown"
@@ -779,17 +847,18 @@ app_server <- function(input, output, session) {
                           curvature = input$net_curv, linewidth = abs(e$r) * input$net_ewb, alpha = input$net_eab)
     }
     if (input$net_nfill == "rank") {
-      g <- g + geom_point(aes(fill = colr), shape = 21, color = "grey25", size = df$size,
+      g <- g + geom_point(aes(fill = colr), shape = pt_shape, color = "grey25", size = df$size,
                           stroke = input$net_nstroke, alpha = 0.95) +
         scale_fill_manual(values = taxon_cols(sort(unique(df$colr)), input$pal)) +
         labs(fill = input$net_colrank)
     } else {
       validate(need(grepl("^#[0-9A-Fa-f]{6}$", input$net_fcol), "Node color must be a hex code like #F0653A."))
-      g <- g + geom_point(fill = input$net_fcol, shape = 21, color = dim_hex(input$net_fcol), size = df$size,
+      g <- g + geom_point(fill = input$net_fcol, shape = pt_shape, color = dim_hex(input$net_fcol), size = df$size,
                           stroke = input$net_nstroke, alpha = 0.95)
     }
     ttl <- if (nzchar(trimws(input$net_title))) trimws(input$net_title) else
       sprintf("%d taxa, %d edges (%s, |r| >= %s, %s <= %s)", nrow(df), nrow(e), input$net_corm, input$net_r, ifelse(isTRUE(n$use_adjp), "p_adj(BH)", "p_raw"), input$net_fdr)
+    if (has2) ttl <- paste0(ttl, "  |  triangles = dataset 2")
     g <- g + labs(color = "Association", title = ttl) +
       theme_void(base_size = 12) +
       theme(legend.text = element_text(size = 8))
@@ -804,6 +873,7 @@ app_server <- function(input, output, session) {
         id_map <- setNames(paste0("ASV", seq_along(asv_tot)), names(sort(asv_tot, decreasing = TRUE)))
         tt2 <- tax_mat(n$p)
         labs_b <- vapply(hubs$name, function(lb) {
+          if (isTRUE(n$ds[lb] == "dataset 2")) return(lb)
           asvs <- rownames(tt2)[tt2[, input$net_rank] == lb]
           top <- asvs[which.max(asv_tot[asvs])]
           paste0(unname(id_map[top]), " - ", lb)
@@ -826,9 +896,13 @@ app_server <- function(input, output, session) {
                     Reads = as.numeric(lib[n$lay$name]), check.names = FALSE, row.names = NULL))
     } else {
       n <- netB(); deg <- igraph::degree(n$g)
-      dt(data.frame(Taxon = names(deg), Degree = as.numeric(deg),
-                    Total_reads = as.numeric(rowSums(n$cnt)[names(deg)]),
-                    tax_mat(n$p)[names(deg), , drop = FALSE], check.names = FALSE, row.names = NULL))
+      txdf <- data.frame(Taxon = rownames(tax_mat(n$p)), tax_mat(n$p), check.names = FALSE,
+                         stringsAsFactors = FALSE, row.names = NULL)
+      dfd <- data.frame(Taxon = names(deg), Dataset = unname(n$ds[names(deg)]),
+                        Degree = as.numeric(deg),
+                        Total_reads = as.numeric(rowSums(n$cnt)[names(deg)]),
+                        check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
+      dt(merge(dfd, txdf, by = "Taxon", all.x = TRUE))
     }
   }))
   dl_gg("dl_net", function() if (input$net_mode == "sample") netA_gg() else netB_gg(), "network")
@@ -840,10 +914,13 @@ app_server <- function(input, output, session) {
                               Reads = as.numeric(lib[n$lay$name]), check.names = FALSE, row.names = NULL))
     } else {
       n <- netB(); deg <- igraph::degree(n$g)
-      list(Edges = n$edges,
-           Nodes = data.frame(Taxon = names(deg), Degree = as.numeric(deg),
-                              Total_reads = as.numeric(rowSums(n$cnt)[names(deg)]),
-                              tax_mat(n$p)[names(deg), , drop = FALSE], check.names = FALSE, row.names = NULL))
+      txdf <- data.frame(Taxon = rownames(tax_mat(n$p)), tax_mat(n$p), check.names = FALSE,
+                         stringsAsFactors = FALSE, row.names = NULL)
+      dfd <- data.frame(Taxon = names(deg), Dataset = unname(n$ds[names(deg)]),
+                        Degree = as.numeric(deg),
+                        Total_reads = as.numeric(rowSums(n$cnt)[names(deg)]),
+                        check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
+      list(Edges = n$edges, Nodes = merge(dfd, txdf, by = "Taxon", all.x = TRUE))
     }
   }, "network")
 
