@@ -41,6 +41,10 @@ fluidPage(
         numericInput("min_prev", "Min samples a taxon appears in", 1, min = 1),
         selectInput("filt_rank", "Keep only taxa where rank...", choices = "None"),
         selectizeInput("filt_vals", "...is one of (empty = no filter)", choices = NULL, multiple = TRUE)
+        selectInput("filt_rank2", "Remove taxa where rank...", choices = "None"),
+        selectizeInput("filt_vals2", "...is one of (excluded)", choices = NULL, multiple = TRUE)
+        selectInput("filt_rank2", "Remove taxa where rank...", choices = "None"),
+        selectizeInput("filt_vals2", "...is one of (excluded)", choices = NULL, multiple = TRUE)
       ),
       tags$details(
         tags$summary(strong("Palette & export")),

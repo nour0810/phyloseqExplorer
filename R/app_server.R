@@ -82,6 +82,7 @@ app_server <- function(input, output, session) {
     updateCheckboxGroupInput(session, "samples", choices = sample_names(p),
                              selected = if (is.null(isolate(input$samples))) sample_names(p) else intersect(isolate(input$samples), sample_names(p)))
     updateSelectInput(session, "filt_rank", choices = c("None", ranks))
+    updateSelectInput(session, "filt_rank2", choices = c("None", ranks))
     for (id in c("rank", "b_taxrank")) updateSelectInput(session, id, choices = ranks, selected = keep_sel(id, ranks, def))
     updateSelectInput(session, "tm_rank", choices = ranks, selected = keep_sel("tm_rank", ranks, deftm))
     updateSelectInput(session, "hm_level", choices = c("ASV", ranks), selected = keep_sel("hm_level", c("ASV", ranks), "ASV"))
@@ -104,6 +105,12 @@ app_server <- function(input, output, session) {
     updateSelectizeInput(session, "env_vars", choices = numv, selected = keep_sel("env_vars", numv, head(numv, 4)))
   })
 
+  observeEvent(input$filt_rank2, {
+    p <- raw(); req(p)
+    ch2 <- if (input$filt_rank2 == "None") character(0) else sort(unique(tax_mat(p)[, input$filt_rank2]))
+    updateSelectizeInput(session, "filt_vals2", choices = ch2, selected = character(0))
+  })
+
   observeEvent(input$filt_rank, {
     p <- raw(); req(p)
     ch <- if (input$filt_rank == "None") character(0) else sort(unique(tax_mat(p)[, input$filt_rank]))
@@ -124,6 +131,9 @@ app_server <- function(input, output, session) {
     p <- filter_taxa(p, function(x) sum(x > 0) >= input$min_prev, prune = TRUE)
     if (!identical(input$filt_rank, "None") && length(input$filt_vals)) {
       p <- prune_taxa(taxa_names(p)[tax_mat(p)[, input$filt_rank] %in% input$filt_vals], p)
+    }
+    if (!identical(input$filt_rank2, "None") && length(input$filt_vals2)) {
+      p <- prune_taxa(taxa_names(p)[!(tax_mat(p)[, input$filt_rank2] %in% input$filt_vals2)], p)
     }
     validate(need(ntaxa(p) > 0, "No taxa pass the filters."))
     p
