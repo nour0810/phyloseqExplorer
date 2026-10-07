@@ -227,3 +227,10 @@ make_xlsx <- function(file, sheets) {
 
 dl_row <- function(fig, xl) div(downloadButton(fig, "Figure", class = "btn-sm"),
                                 downloadButton(xl, "Excel tables", class = "btn-sm"))
+
+# footer: which packages this tab uses (rendered dynamically in the server)
+pkg_line <- function(pkgs) {
+  pkgs <- as.character(pkgs)
+  div(style = "margin:16px 0 2px 0; padding-top:5px; border-top:1px solid #eee; color:#999; font-size:11px;",
+      HTML(paste0("Packages used in this tab: <code>", paste(pkgs, collapse = "</code> &middot; <code>"), "</code>")))
+}

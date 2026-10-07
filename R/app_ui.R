@@ -69,7 +69,8 @@ fluidPage(
           checkboxInput("rc_clip", "Clip x axis at the smallest library", FALSE),
           plotOutput("rare_plot", height = "380px"),
           h5("Sample metadata"), DTOutput("meta_tbl"), br(),
-          dl_row("dl_rare", "xl_over")),
+          dl_row("dl_rare", "xl_over"),
+          uiOutput("pkg_ov")),
         # ---------------- Composition
         tabPanel("Composition", br(),
           fluidRow(
@@ -81,7 +82,8 @@ fluidPage(
           plotOutput("bar_plot", height = "560px"),
           dl_row("dl_bar", "xl_bar"),
           fluidRow(column(5, h5("Clades shown (printed table of your script)"), DTOutput("cum_tbl")),
-                   column(7, h5("Mean % per group"), DTOutput("grp_tbl")))),
+                   column(7, h5("Mean % per group"), DTOutput("grp_tbl"))),
+          uiOutput("pkg_comp")),
         # ---------------- Treemap
         tabPanel("Treemap", br(),
           fluidRow(column(3, selectInput("tm_rank", "Rank", NULL)),
@@ -89,7 +91,8 @@ fluidPage(
                    column(3, numericInput("tm_thr", "Merge taxa below (%)", 1, 0, 20, step = 0.5))),
           if (has("treemap")) plotOutput("tm_plot", height = "520px") else
             div(class = "alert alert-warning", "Install the 'treemap' package: install.packages('treemap')"),
-          dl_row("dl_tm", "xl_tm")),
+          dl_row("dl_tm", "xl_tm"),
+          uiOutput("pkg_tm")),
         # ---------------- Heatmap
         tabPanel("Heatmap", br(),
           fluidRow(column(2, selectInput("hm_level", "Rows", "ASV")),
@@ -105,7 +108,8 @@ fluidPage(
                    column(2, selectInput("hm_l2", "Custom rank 2", "(none)"))),
           if (has("pheatmap")) plotOutput("hm_plot", height = "700px") else
             div(class = "alert alert-warning", "Install 'pheatmap': install.packages('pheatmap')"),
-          dl_row("dl_hm", "xl_hm")),
+          dl_row("dl_hm", "xl_hm"),
+          uiOutput("pkg_hm")),
         # ---------------- Alpha
         tabPanel("Alpha diversity", br(),
           fluidRow(column(3, selectInput("a_group", "Group by", "Sample")),
@@ -120,7 +124,8 @@ fluidPage(
           tabsetPanel(
             tabPanel("Values", DTOutput("a_vals")), tabPanel("Normality", DTOutput("a_norm")),
             tabPanel("Variance", DTOutput("a_var")), tabPanel("Global test", DTOutput("a_glob")),
-            tabPanel("Post-hoc", DTOutput("a_post")))),
+            tabPanel("Post-hoc", DTOutput("a_post"))),
+            uiOutput("pkg_alpha")),
         # ---------------- Beta
         tabPanel("Beta diversity", br(),
           fluidRow(column(2, selectInput("b_group", "Color / test factor", "Sample")),
@@ -137,7 +142,8 @@ fluidPage(
           dl_row("dl_beta", "xl_beta"),
           tabsetPanel(
             tabPanel("PERMANOVA", DTOutput("b_perm_t")), tabPanel("Betadisper", DTOutput("b_disp_t")),
-            tabPanel("Pairwise PERMANOVA", DTOutput("b_pair_t")), tabPanel("Method", DTOutput("b_meth_t")))),
+            tabPanel("Pairwise PERMANOVA", DTOutput("b_pair_t")), tabPanel("Method", DTOutput("b_meth_t"))),
+            uiOutput("pkg_beta")),
         # ---------------- Network
         tabPanel("Network", br(),
           if (has("igraph")) tagList(
@@ -207,7 +213,8 @@ fluidPage(
             plotOutput("net_plot", height = "620px"),
             dl_row("dl_net", "xl_net"),
             tabsetPanel(
-              tabPanel("Edges", DTOutput("net_edge_t")), tabPanel("Nodes", DTOutput("net_node_t"))))
+              tabPanel("Edges", DTOutput("net_edge_t")), tabPanel("Nodes", DTOutput("net_node_t"))),
+              uiOutput("pkg_net"))
           else div(class = "alert alert-warning", "Install 'igraph' for network analysis: install.packages('igraph'")),
         # ---------------- Environment
         tabPanel("Environment (RDA)", br(),
@@ -228,7 +235,8 @@ fluidPage(
             tabPanel("Model", DTOutput("e_model")), tabPanel("ANOVA global", DTOutput("e_glob")),
             tabPanel("ANOVA margin", DTOutput("e_marg")), tabPanel("VIF", DTOutput("e_vif")),
             tabPanel("Candidate R2", DTOutput("e_cand")), tabPanel("Correlations (r + stars)", DTOutput("e_cor")),
-            tabPanel("Correlations (p-values)", DTOutput("e_cor_p")))),
+            tabPanel("Correlations (p-values)", DTOutput("e_cor_p"))),
+            uiOutput("pkg_rda")),
         # ---------------- Tables
         tabPanel("Taxa tables", br(),
           h5("ASV table (taxonomy, reads, prevalence, sequence)"),
@@ -238,7 +246,8 @@ fluidPage(
                                            placeholder = "Alveolata\nCopepoda\nSyndiniales.?I([^I]|$)")),
                    column(3, selectInput("pat_group", "Summarise by", "None")),
                    column(2, br(), downloadButton("dl_pat", "CSV", class = "btn-sm"))),
-          DTOutput("pat_tbl"))
+          DTOutput("pat_tbl"),
+          uiOutput("pkg_tab"))
       )
     )
   )

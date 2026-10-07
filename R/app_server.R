@@ -162,6 +162,29 @@ app_server <- function(input, output, session) {
                                     content = function(file) make_xlsx(file, getsheets()))
   dt <- function(df, ...) datatable(df, rownames = FALSE, options = list(scrollX = TRUE, pageLength = 10), ...)
 
+  # ---- dynamic "Packages used" footers ----
+  pkg_pal <- reactive({
+    pv <- if (is.null(input$pal)) "set1_60" else input$pal
+    if (pv %in% c("hue", "viridis")) "scales" else character(0)
+  })
+  has_tree <- reactive(tryCatch(!is.null(phy_tree(ps_f(), errorIfNULL = FALSE)), error = function(e) FALSE))
+  output$pkg_ov    <- renderUI(pkg_line(c("phyloseq", "vegan", "ggplot2", "DT")))
+  output$pkg_comp  <- renderUI(pkg_line(c("phyloseq", "ggplot2", "DT", pkg_pal())))
+  output$pkg_tm    <- renderUI(pkg_line(c("treemap", "grid", "ggplot2", pkg_pal())))
+  output$pkg_hm    <- renderUI(pkg_line(c("pheatmap", "grid", "grDevices")))
+  output$pkg_alpha <- renderUI(pkg_line(c("vegan", "stats",
+    if (has("picante") && has_tree()) "picante" else character(0),
+    if (has("ggpubr")) "ggpubr" else character(0))))
+  output$pkg_beta  <- renderUI(pkg_line(c("vegan",
+    if (has("ggdendro")) "ggdendro" else character(0),
+    if (has("patchwork")) "patchwork" else if (has("ggpubr")) "ggpubr" else character(0),
+    pkg_pal())))
+  output$pkg_net   <- renderUI(pkg_line(c("igraph", "stats", "scales",
+    if (has("ggrepel")) "ggrepel" else character(0))))
+  output$pkg_rda   <- renderUI(pkg_line(c("vegan", "stats",
+    if (has("ggrepel")) "ggrepel" else character(0))))
+  output$pkg_tab   <- renderUI(pkg_line(c("DT", "utils", "tools")))
+
   # =================================================================
   # OVERVIEW
   # =================================================================
