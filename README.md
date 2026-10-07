@@ -1,5 +1,7 @@
 # phyloseqExplorer
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23210146.svg)](https://doi.org/10.5281/zenodo.23210146)
+
 An interactive R/Shiny application for **microbiome & metabarcoding data stored as
 [phyloseq](https://bioconductor.org/packages/phyloseq) objects** — from raw QC to
 publication-ready figures and statistics, fully offline.
@@ -83,4 +85,8 @@ Optional packages unlock extra features (the app tells you what to install if mi
 
 ## License
 
-MIT. Citation: forthcoming (Zenodo DOI will be minted on the first release).
+MIT. 
+
+## Citation
+
+Mathlouthi, N. (2026). *phyloseqExplorer: Interactive exploration and publication-ready analysis of phyloseq objects* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.23210146
