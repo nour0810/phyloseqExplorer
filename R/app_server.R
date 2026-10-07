@@ -1139,15 +1139,15 @@ app_server <- function(input, output, session) {
     validate(need(length(common) >= 4, "Need >= 4 shared samples between the selected datasets."))
     getm <- function(p, rank, tax) {
       tt <- tax_mat(p); ot <- otu_mat(p)
+      rel_full <- sweep(ot, 2, pmax(colSums(ot), 1e-12), "/") * 100
       if (rank == "(ASV)") {
-        m <- ot[intersect(tax, rownames(ot)), common, drop = FALSE]
+        m <- rel_full[intersect(tax, rownames(rel_full)), common, drop = FALSE]
       } else {
         asvs <- rownames(tt)[tt[, rank] %in% tax]
-        m <- rowsum(ot[asvs, common, drop = FALSE], group = tt[asvs, rank], reorder = FALSE)
+        m <- rowsum(rel_full[asvs, common, drop = FALSE], group = tt[asvs, rank], reorder = FALSE)
         m <- m[intersect(tax, rownames(m)), , drop = FALSE]
       }
-      rel <- sweep(m, 2, pmax(colSums(m), 1e-12), "/") * 100
-      rel[rowSums(rel >= input$cor_minab) > 0, , drop = FALSE]
+      m[rowSums(m >= input$cor_minab) > 0, , drop = FALSE]
     }
     mA <- getm(pA, input$cor_rankA, input$cor_taxA)
     mB <- getm(pB, input$cor_rankB, input$cor_taxB)
