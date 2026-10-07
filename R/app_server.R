@@ -1155,12 +1155,18 @@ app_server <- function(input, output, session) {
     long <- NULL
     for (ia in seq_len(nrow(mA))) for (ib in seq_len(nrow(mB))) {
       x <- as.numeric(mA[ia, ]); y <- as.numeric(mB[ib, ])
-      ct <- tryCatch(suppressWarnings(cor.test(x, y, method = input$cor_meth, exact = FALSE)),
-                     error = function(e) NULL)
+      msg <- ""
+      if (sd(x) == 0 || sd(y) == 0) {
+        msg <- "no variance across samples (undefined correlation)"
+        ct <- NULL
+      } else {
+        ct <- tryCatch(suppressWarnings(cor.test(x, y, method = input$cor_meth, exact = FALSE)),
+                       error = function(e) { msg <<- conditionMessage(e); NULL })
+      }
       rr <- if (is.null(ct) || length(ct$estimate) == 0) NA_real_ else unname(ct$estimate)
       pp <- if (is.null(ct)) NA_real_ else ct$p.value
       long <- rbind(long, data.frame(A = rownames(mA)[ia], B = rownames(mB)[ib], n = length(common),
-                                     r = rr, p_value = pp, stringsAsFactors = FALSE))
+                                     r = rr, p_value = pp, note = msg, stringsAsFactors = FALSE))
     }
     long$p_adj_BH <- p.adjust(long$p_value, "BH")
     use_adj <- is.null(input$padj_mode) || input$padj_mode == "bh"
