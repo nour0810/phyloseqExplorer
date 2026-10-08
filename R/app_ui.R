@@ -121,7 +121,7 @@ fluidPage(
                    column(3, checkboxInput("a_rare", "Rarefy to min depth (seed 42)", TRUE)),
                    column(2, radioButtons("a_test", "Figure test", c("Auto" = "auto", "ANOVA/t" = "p", "Kruskal/Wilcoxon" = "np")))),
           uiOutput("a_note"),
-          h5("Per-sample values"), downloadButton("dl_adot", "Figure", class = "btn-sm"),
+          h5("Per-sample values"), downloadButton("dl_adot", "Figure", class = "btn-sm"), downloadButton("dl_avals", "Values CSV", class = "btn-sm"),
           plotOutput("a_dot", height = "420px"),
           h5("Group comparison"), plotOutput("a_box", height = "420px"),
           dl_row("dl_alpha", "xl_alpha"),

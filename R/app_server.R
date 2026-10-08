@@ -541,11 +541,12 @@ app_server <- function(input, output, session) {
 
   a_dot_gg <- reactive({
     d <- alpha_long(); g <- d$Group; ord <- unique(d$Sample[order(g, natural_key(d$Sample))])
-    d$Sample <- factor(d$Sample, levels = rev(ord))
+    d$Sample <- factor(d$Sample, levels = ord)
     cols <- group_cols(sort(unique(d$Group)))
-    ggplot(d, aes(value, Sample, color = Group)) + geom_point(size = 2.3) + scale_color_manual(values = cols) +
-      facet_wrap(~ Index, scales = "free_x", nrow = 1) + labs(x = NULL, y = NULL, color = input$a_group) +
-      theme_bw(base_size = 11) + theme(axis.text.y = element_text(size = 6), strip.background = element_rect(fill = "grey90"),
+    ggplot(d, aes(Sample, value, color = Group)) + geom_point(size = 2.3) + scale_color_manual(values = cols) +
+      facet_wrap(~ Index, scales = "free_y", nrow = 1) + labs(x = NULL, y = NULL, color = input$a_group) +
+      theme_bw(base_size = 11) + theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
+                                       strip.background = element_rect(fill = "grey90"),
                                        strip.text = element_text(face = "bold"))
   })
   a_box_gg <- reactive({
@@ -570,6 +571,12 @@ app_server <- function(input, output, session) {
   output$a_box <- renderPlot(show_gg(a_box_gg()))
   dl_gg("dl_alpha", a_box_gg, "alpha_boxplots")
   dl_gg("dl_adot", a_dot_gg, "alpha_per_sample_values")
+  output$dl_avals <- downloadHandler(filename = "alpha_values.csv",
+    content = function(file) {
+      a <- alpha_df()
+      a$Group <- if (input$a_group == "Sample") a$Sample else unname(grp_of(ps_f(), input$a_group)[a$Sample])
+      write.csv(a, file, row.names = FALSE, fileEncoding = "UTF-8")
+    })
   output$a_vals <- renderDT(enc_safe({ a <- alpha_df(); a[-1] <- lapply(a[-1], round, 3)
     dt(data.frame(a, Group = if (input$a_group == "Sample") a$Sample else grp_of(ps_f(), input$a_group)[a$Sample])) }))
   for (nm in c("norm", "var", "glob", "post")) local({ n <- nm
