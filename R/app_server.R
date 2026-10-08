@@ -660,6 +660,8 @@ app_server <- function(input, output, session) {
   })
   output$b_bi <- renderPlot(show_gg(b_bi_gg()))
   dl_gg("dl_beta", b_bi_gg, "beta_biplot")
+  dl_gg("dl_dend", b_dend_gg, "beta_dendrogram")
+  dl_gg("dl_pcoa", b_pcoa_gg, "beta_pcoa")
 
   b_stats <- reactive({
     b <- beta(); m <- b_meta(); n <- input$b_perm; set.seed(42)

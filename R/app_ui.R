@@ -140,8 +140,9 @@ fluidPage(
                    column(2, numericInput("b_perm", "Permutations", 999, 99, 9999, step = 100))),
           fluidRow(column(3, checkboxInput("b_ell", "Ellipses", TRUE)),
                    column(3, selectInput("b_taxrank", "Biplot taxa colored by", NULL))),
-          h5("A - Dendrogram"), plotOutput("b_dend", height = "380px"),
-          fluidRow(column(5, h5("B - PCoA"), plotOutput("b_pcoa", height = "430px")),
+          h5("A - Dendrogram"), downloadButton("dl_dend", "Figure", class = "btn-sm"),
+          plotOutput("b_dend", height = "380px"),
+          fluidRow(column(5, h5("B - PCoA"), downloadButton("dl_pcoa", "Figure", class = "btn-sm"), plotOutput("b_pcoa", height = "430px")),
                    column(7, h5("C - PCoA biplot (samples | taxa)"), plotOutput("b_bi", height = "430px"))),
           dl_row("dl_beta", "xl_beta"),
           tabsetPanel(
