@@ -121,7 +121,8 @@ fluidPage(
                    column(3, checkboxInput("a_rare", "Rarefy to min depth (seed 42)", TRUE)),
                    column(2, radioButtons("a_test", "Figure test", c("Auto" = "auto", "ANOVA/t" = "p", "Kruskal/Wilcoxon" = "np")))),
           uiOutput("a_note"),
-          h5("Per-sample values"), plotOutput("a_dot", height = "420px"),
+          h5("Per-sample values"), downloadButton("dl_adot", "Figure", class = "btn-sm"),
+          plotOutput("a_dot", height = "420px"),
           h5("Group comparison"), plotOutput("a_box", height = "420px"),
           dl_row("dl_alpha", "xl_alpha"),
           tabsetPanel(
@@ -266,6 +267,7 @@ fluidPage(
           h5("ASV table (taxonomy, reads, prevalence, sequence)"),
           downloadButton("dl_tax", "CSV", class = "btn-sm"),
           checkboxInput("tax_per", "Add per-sample columns (each sample: reads + rel. %)", FALSE),
+          verbatimTextOutput("dbg_tax"),
           DTOutput("tax_tbl"), hr(),
           h5("Group search: % of reads for any taxon pattern (regex, one per line)"),
           fluidRow(column(4, textAreaInput("pat_text", NULL, rows = 6,

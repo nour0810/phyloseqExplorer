@@ -569,6 +569,7 @@ app_server <- function(input, output, session) {
   output$a_dot <- renderPlot(show_gg(a_dot_gg()))
   output$a_box <- renderPlot(show_gg(a_box_gg()))
   dl_gg("dl_alpha", a_box_gg, "alpha_boxplots")
+  dl_gg("dl_adot", a_dot_gg, "alpha_per_sample_values")
   output$a_vals <- renderDT(enc_safe({ a <- alpha_df(); a[-1] <- lapply(a[-1], round, 3)
     dt(data.frame(a, Group = if (input$a_group == "Sample") a$Sample else grp_of(ps_f(), input$a_group)[a$Sample])) }))
   for (nm in c("norm", "var", "glob", "post")) local({ n <- nm
