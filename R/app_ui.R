@@ -83,7 +83,8 @@ fluidPage(
           dl_row("dl_bar", "xl_bar"),
           fluidRow(column(5, h5("Clades shown (printed table of your script)"), DTOutput("cum_tbl")),
                    column(7, h5("Mean % per group"), DTOutput("grp_tbl"))),
-          h5("Per-sample % for the clades shown above"),
+          h5("Per-sample detail (every sample x clade: n_ASVs, ASV_%, n_reads, Reads_%):"),
+          downloadButton("dl_psamp", "CSV", class = "btn-sm"),
           DTOutput("psamp_tbl"),
           uiOutput("pkg_comp")),
         # ---------------- Treemap
@@ -263,7 +264,9 @@ fluidPage(
         # ---------------- Tables
         tabPanel("Taxa tables", br(),
           h5("ASV table (taxonomy, reads, prevalence, sequence)"),
-          downloadButton("dl_tax", "CSV", class = "btn-sm"), DTOutput("tax_tbl"), hr(),
+          downloadButton("dl_tax", "CSV", class = "btn-sm"),
+          checkboxInput("tax_per", "Add per-sample columns (each sample: reads + rel. %)", FALSE),
+          DTOutput("tax_tbl"), hr(),
           h5("Group search: % of reads for any taxon pattern (regex, one per line)"),
           fluidRow(column(4, textAreaInput("pat_text", NULL, rows = 6,
                                            placeholder = "Alveolata\nCopepoda\nSyndiniales.?I([^I]|$)")),
