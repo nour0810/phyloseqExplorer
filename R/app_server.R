@@ -937,13 +937,12 @@ app_server <- function(input, output, session) {
       if (input$net_lfmt == "both") labs_b <- paste0(hubs$name, " - ", hubs$colr)
       if (input$net_lfmt == "asv") {
         asv_tot <- rowSums(otu_mat(n$p))
-        id_map <- setNames(paste0("ASV", seq_along(asv_tot)), names(sort(asv_tot, decreasing = TRUE)))
         tt2 <- tax_mat(n$p)
         labs_b <- vapply(hubs$name, function(lb) {
           if (isTRUE(n$ds[lb] == "dataset 2")) return(lb)
           asvs <- rownames(tt2)[tt2[, input$net_rank] == lb]
           top <- asvs[which.max(asv_tot[asvs])]
-          paste0(unname(id_map[top]), " - ", lb)
+          paste0(top, " - ", lb)
         }, character(1))
       }
       fcb <- if (isTRUE(input$net_bold)) "bold" else "plain"
@@ -1236,18 +1235,18 @@ app_server <- function(input, output, session) {
   tax_df <- reactive({
     p <- ps_f(); cnt <- otu_mat(p); tt <- as.data.frame(tax_mat(p), stringsAsFactors = FALSE)
     tot <- rowSums(cnt)[taxa_names(p)]
-    df <- data.frame(ASV = paste0("ASV", seq_len(ntaxa(p))), ID = taxa_names(p), tt, Total_reads = as.numeric(tot),
+    df <- data.frame(ASV_rank = paste0("ASV", seq_len(ntaxa(p))), ASV_ID = taxa_names(p), tt, Total_reads = as.numeric(tot),
                      Rel_abundance_pct = round(100 * as.numeric(tot) / sum(tot), 3), Prevalence = rowSums(cnt > 0)[taxa_names(p)],
                      check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
     rs <- refseq(p, errorIfNULL = FALSE); if (!is.null(rs)) df$Sequence <- as.character(rs)[taxa_names(p)]
     if (isTRUE(input$tax_per)) {
       rel <- rel100(cnt)
-      add <- data.frame(ID = taxa_names(p),
+      add <- data.frame(ASV_ID = taxa_names(p),
                         as.data.frame(round(rel[taxa_names(p), , drop = FALSE], 3), check.names = FALSE),
                         as.data.frame(cnt[taxa_names(p), , drop = FALSE], check.names = FALSE),
                         check.names = FALSE, stringsAsFactors = FALSE)
-      names(add) <- c("ID", paste0(colnames(cnt), "_pct"), paste0(colnames(cnt), "_reads"))
-      df <- merge(df, add, by = "ID", all.x = TRUE, sort = FALSE)
+      names(add) <- c("ASV_ID", paste0(colnames(cnt), "_pct"), paste0(colnames(cnt), "_reads"))
+      df <- merge(df, add, by = "ASV_ID", all.x = TRUE, sort = FALSE)
     }
     df[order(-df$Total_reads), ]
   })
