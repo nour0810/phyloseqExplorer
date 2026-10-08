@@ -1230,12 +1230,27 @@ app_server <- function(input, output, session) {
                      Rel_abundance_pct = round(100 * as.numeric(tot) / sum(tot), 3), Prevalence = rowSums(cnt > 0)[taxa_names(p)],
                      check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
     rs <- refseq(p, errorIfNULL = FALSE); if (!is.null(rs)) df$Sequence <- as.character(rs)[taxa_names(p)]
+    if (isTRUE(input$tax_per)) {
+      rel <- rel100(cnt)
+      add <- data.frame(ID = taxa_names(p),
+                        as.data.frame(round(rel[taxa_names(p), , drop = FALSE], 3), check.names = FALSE),
+                        as.data.frame(cnt[taxa_names(p), , drop = FALSE], check.names = FALSE),
+                        check.names = FALSE, stringsAsFactors = FALSE)
+      names(add) <- c("ID", paste0(colnames(cnt), "_pct"), paste0(colnames(cnt), "_reads"))
+      df <- merge(df, add, by = "ID", all.x = TRUE, sort = FALSE)
+    }
     df[order(-df$Total_reads), ]
   })
   output$tax_tbl <- renderDT(enc_safe({
     df <- tax_df(); if ("Sequence" %in% names(df)) df$Sequence <- ifelse(nchar(df$Sequence) > 40, paste0(substr(df$Sequence, 1, 40), "..."), df$Sequence)
     datatable(df, rownames = FALSE, filter = "top", options = list(scrollX = TRUE, pageLength = 15))
   }))
+  output$dbg_tax <- renderPrint({
+    cat("checkbox value (TRUE means ticked):", isTRUE(input$tax_per), "\n")
+    df <- tryCatch(tax_df(), error = function(e) { cat("tax_df ERROR:", conditionMessage(e), "\n"); NULL })
+    if (!is.null(df)) cat("tax_df columns:", ncol(df), "| contains _pct cols:", any(grepl("_pct", names(df))), "\n")
+  })
+
   output$dl_tax <- downloadHandler(filename = function() "taxa_table.csv",
                                    content = function(file) write.csv(tax_df(), file, row.names = FALSE, fileEncoding = "UTF-8"))
 
