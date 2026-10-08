@@ -313,28 +313,29 @@ app_server <- function(input, output, session) {
     tab[order(-tab$Overall_pct), ]
   })
   output$grp_tbl <- renderDT(enc_safe(dt(grp_summary())))
-  observeEvent(ps_f(), {
-    p <- ps_f(); req(p)
-    updateSelectInput(session, "psamp_which", choices = sample_names(p), selected = sample_names(p)[1])
-  }, ignoreInit = TRUE)
-
-  output$psamp_tbl <- renderDT(enc_safe({
-    req(input$psamp_which, input$rank)
-    p <- ps_f(); s <- input$psamp_which
+  psamp_df <- reactive({
+    req(input$rank)
+    p <- ps_f()
     otc <- otu_mat(p); tt <- tax_mat(p); lab <- tt[, input$rank]
     cc <- comp(); shown <- levels(cc$df$Rank)
     real <- setdiff(shown, "Others")
-    det <- otc[, s] > 0
-    tot_det <- sum(det); lib <- sum(otc[, s])
-    res <- do.call(rbind, lapply(shown, function(cl) {
-      asvs_cl <- if (cl == "Others") rownames(otc)[!(lab %in% real)] else rownames(otc)[lab == cl]
-      n_asv <- sum(det[asvs_cl]); n_rd <- sum(otc[asvs_cl, s])
-      data.frame(Clade = cl, n_ASVs = n_asv, ASV_pct = round(n_asv / max(tot_det, 1) * 100, 2),
-                 n_reads = n_rd, Reads_pct = round(n_rd / max(lib, 1) * 100, 2), stringsAsFactors = FALSE)
+    det_all <- otc > 0
+    out <- do.call(rbind, lapply(colnames(otc), function(s) {
+      det <- det_all[, s]; tot_det <- sum(det); lib <- sum(otc[, s])
+      do.call(rbind, lapply(shown, function(cl) {
+        asvs_cl <- if (cl == "Others") rownames(otc)[!(lab %in% real)] else rownames(otc)[lab == cl]
+        n_asv <- sum(det[asvs_cl]); n_rd <- sum(otc[asvs_cl, s])
+        data.frame(Sample = s, Clade = cl, n_ASVs = n_asv,
+                   ASV_pct = round(n_asv / max(tot_det, 1) * 100, 2),
+                   n_reads = n_rd, Reads_pct = round(n_rd / max(lib, 1) * 100, 2), stringsAsFactors = FALSE)
+      }))
     }))
-    res$Cum_reads_pct <- round(cumsum(res$Reads_pct), 2)
-    dt(res)
-  }))
+    rownames(out) <- NULL
+    out
+  })
+  output$psamp_tbl <- renderDT(enc_safe(dt(psamp_df())))
+  output$dl_psamp <- downloadHandler(filename = "per_sample_clades.csv",
+    content = function(file) write.csv(psamp_df(), file, row.names = FALSE, fileEncoding = "UTF-8"))
 
   dl_xl("xl_bar", function() {
     cc <- comp()
