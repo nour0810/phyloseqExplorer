@@ -313,6 +313,16 @@ app_server <- function(input, output, session) {
     tab[order(-tab$Overall_pct), ]
   })
   output$grp_tbl <- renderDT(enc_safe(dt(grp_summary())))
+  output$psamp_tbl <- renderDT(enc_safe({
+    cc <- comp()
+    d <- cc$df[, c("Rank", "Sample", "Abundance")]
+    d$Sample <- as.character(d$Sample)
+    wide <- reshape(d, idvar = "Rank", timevar = "Sample", direction = "wide")
+    names(wide) <- sub("Abundance.", "", names(wide), fixed = TRUE)
+    wide <- data.frame(Clade = wide$Rank, round(wide[, -1, drop = FALSE], 2), check.names = FALSE)
+    dt(wide)
+  }))
+
   dl_xl("xl_bar", function() {
     cc <- comp()
     list(Clade_percentages = cc$tab, Taxon_summary = grp_summary(),

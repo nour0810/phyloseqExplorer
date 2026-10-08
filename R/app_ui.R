@@ -83,6 +83,8 @@ fluidPage(
           dl_row("dl_bar", "xl_bar"),
           fluidRow(column(5, h5("Clades shown (printed table of your script)"), DTOutput("cum_tbl")),
                    column(7, h5("Mean % per group"), DTOutput("grp_tbl"))),
+          h5("Per-sample % for the clades shown above"),
+          DTOutput("psamp_tbl"),
           uiOutput("pkg_comp")),
         # ---------------- Treemap
         tabPanel("Treemap", br(),
