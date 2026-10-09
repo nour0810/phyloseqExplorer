@@ -52,13 +52,20 @@ test_that("cooc_stats derives r and p from the same matrix", {
   expect_false(isTRUE(all.equal(cs$r["t1", "t3"],
                                 cor(cnt["t1", ], cnt["t3", ], method = "spearman"))))
 
-  # every p must be the p-value of the r reported beside it
-  n <- ncol(cnt)
+  # every p must be the p-value of the r reported beside it. Checked as an
+  # invariant rather than a formula so it holds for the exact test and the
+  # large-sample approximation alike: p must decrease monotonically as |r| grows.
+  ij <- which(!is.na(cs$p), arr.ind = TRUE)
+  stats <- data.frame(r = abs(cs$r[ij]), p = cs$p[ij])
+  stats <- stats[order(-stats$r), ]
+  expect_false(is.unsorted(stats$p))
+
+  # and each p is exactly what cor.test returns for that same pair of rows
   for (pr in list(c("t1", "t3"), c("t1", "t2"), c("t2", "t4"), c("t3", "t4"))) {
-    r <- cs$r[pr[1], pr[2]]
     expect_equal(cs$p[pr[1], pr[2]],
-                 2 * pt(abs(r) / sqrt((1 - r^2) / (n - 2)), n - 2, lower.tail = FALSE),
-                 tolerance = 1e-8)
+                 suppressWarnings(cor.test(rel[pr[1], ], rel[pr[2], ],
+                                           method = "spearman")$p.value),
+                 tolerance = 1e-12)
   }
 })
 
@@ -101,4 +108,32 @@ test_that("rbind_fill unions columns and fills gaps with NA", {
   expect_equal(sort(names(out)), c("Domain", "Kingdom", "Taxon"))
   expect_true(is.na(out$Kingdom[out$Taxon == "x"]))
   expect_true(is.na(out$Domain[out$Taxon == "y"]))
+})
+
+test_that("cooc_stats uses the exact null distribution at small n", {
+  # perfectly anti-correlated after normalisation; with 5 samples the smallest
+  # attainable two-sided Spearman p is 2/120. Forcing the t-approximation
+  # (exact = FALSE) returned ~4e-24 here, implying certainty from 5 points.
+  cnt <- rbind(a = c(1, 2, 3, 4, 5) * 1000,
+               b = c(5, 4, 3, 2, 1) * 1000,
+               c = c(2, 9, 1, 7, 4) * 1000,
+               d = c(8, 3, 6, 2, 9) * 1000)
+  colnames(cnt) <- paste0("s", 1:5)
+  cs <- phyloseqExplorer:::cooc_stats(cnt, "spearman")
+  pmin_obs <- min(cs$p, na.rm = TRUE)
+  expect_gte(pmin_obs, 2 / 120 - 1e-9)        # cannot beat the permutation floor
+  expect_lt(pmin_obs, 0.5)                    # but a real signal is still detected
+  # no p-value may be absurdly small at n = 5
+  expect_true(all(cs$p[!is.na(cs$p)] > 1e-6))
+})
+
+test_that("cooc_stats still returns a p for tied counts", {
+  # zero-inflated counts produce ties; cor.test then falls back to the
+  # approximation internally and must not error or return NA
+  cnt <- rbind(a = c(0, 0, 5, 12, 0), b = c(0, 3, 0, 7, 0),
+               c = c(1, 0, 0, 4, 2), d = c(0, 6, 2, 0, 0))
+  colnames(cnt) <- paste0("s", 1:5)
+  cs <- phyloseqExplorer:::cooc_stats(cnt, "spearman")
+  expect_equal(sum(!is.na(cs$p)), choose(4, 2))
+  expect_true(all(cs$p[!is.na(cs$p)] >= 0 & cs$p[!is.na(cs$p)] <= 1))
 })

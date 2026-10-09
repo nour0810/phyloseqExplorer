@@ -210,7 +210,11 @@ cooc_stats <- function(cnt, method = "spearman") {
   n   <- nrow(rr)
   pm  <- matrix(NA_real_, n, n, dimnames = dimnames(rr))
   if (n >= 2) for (i in seq_len(n - 1)) for (j in (i + 1):n) {
-    ct <- suppressWarnings(cor.test(rel[i, ], rel[j, ], method = method, exact = FALSE))
+    # exact = NULL (the default) uses the exact null distribution for small n and
+    # falls back to the approximation when there are ties. Forcing exact = FALSE
+    # was badly wrong at small n: with 5 samples the t-approximation reports
+    # p = 4e-24 for rho = 1, where the smallest attainable p-value is 2/120.
+    ct <- suppressWarnings(cor.test(rel[i, ], rel[j, ], method = method))
     pm[i, j] <- ct$p.value
   }
   # p.adjust drops NA before setting n, so the upper triangle is corrected alone

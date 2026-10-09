@@ -1207,7 +1207,8 @@ app_server <- function(input, output, session) {
         msg <- "no variance across samples (undefined correlation)"
         ct <- NULL
       } else {
-        ct <- tryCatch(suppressWarnings(cor.test(x, y, method = input$cor_meth, exact = FALSE)),
+        # exact = NULL: exact null distribution for small n, approximation on ties
+        ct <- tryCatch(suppressWarnings(cor.test(x, y, method = input$cor_meth)),
                        error = function(e) { msg <<- conditionMessage(e); NULL })
       }
       rr <- if (is.null(ct) || length(ct$estimate) == 0) NA_real_ else unname(ct$estimate)
