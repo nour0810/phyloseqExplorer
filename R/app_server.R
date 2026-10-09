@@ -850,13 +850,9 @@ app_server <- function(input, output, session) {
     top <- names(tot)[seq_len(min(input$net_topn, length(tot)))]
     cnt <- cnt[top, , drop = FALSE]
     validate(need(nrow(cnt) >= 4, "Need >= 4 taxa passing the abundance/prevalence filters."))
-    rr <- cor(t(rel100(cnt)), method = input$net_corm)
-    n <- nrow(rr); pm <- matrix(NA_real_, n, n, dimnames = dimnames(rr))
-    for (i in seq_len(n - 1)) for (j in (i + 1):n) {
-      ct <- suppressWarnings(cor.test(cnt[i, ], cnt[j, ], method = input$net_corm, exact = FALSE))
-      pm[i, j] <- ct$p.value
-    }
-    padj <- matrix(p.adjust(as.vector(pm), "BH"), n, n, dimnames = dimnames(rr))
+    cs <- cooc_stats(cnt, method = input$net_corm)
+    rr <- cs$r; pm <- cs$p; padj <- cs$p_adj
+    n <- nrow(rr)
     use_adjp <- if (!is.null(input$net_puse)) input$net_puse == "bh"
                 else is.null(input$padj_mode) || input$padj_mode == "bh"
     pv <- if (use_adjp) padj else pm
@@ -955,20 +951,32 @@ app_server <- function(input, output, session) {
   output$net_plot <- renderPlot(enc_safe(
     if (is.null(input$net_mode) || input$net_mode == "sample") print(netA_gg()) else print(netB_gg())))
   output$net_edge_t <- renderDT(enc_safe(dt(if (input$net_mode == "sample") netA()$edges else netB()$edges)))
+  # node table for the co-occurrence network, with each node's taxonomy resolved
+  # against the dataset it actually came from (see node_tax_lookup in utils.R)
+  net_node_df <- function(n) {
+    deg   <- igraph::degree(n$g); nodes <- names(deg)
+    ds    <- unname(n$ds[nodes]); ds[is.na(ds)] <- "dataset 1"
+    base  <- data.frame(Taxon = nodes, Dataset = ds, Degree = as.numeric(deg),
+                        Total_reads = as.numeric(rowSums(n$cnt)[nodes]),
+                        check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
+    t1 <- node_tax_lookup(tax_mat(n$p), input$net_rank, nodes[ds == "dataset 1"])
+    p2 <- net_second(); lb2 <- nodes[ds == "dataset 2"]; t2 <- NULL
+    if (!is.null(p2) && length(lb2)) {
+      raw2 <- sub(" \\(2\\)$", "", lb2)
+      t2 <- node_tax_lookup(tax_mat(p2), input$net_rank2, raw2)
+      if (!is.null(t2)) t2$Taxon <- lb2[match(t2$Taxon, raw2)]
+    }
+    tax <- rbind_fill(t1, t2)
+    if (is.null(tax)) base else merge(base, tax, by = "Taxon", all.x = TRUE, sort = FALSE)
+  }
+
   output$net_node_t <- renderDT(enc_safe({
     if (input$net_mode == "sample") {
       n <- netA(); lib <- sample_sums(n$p)
       dt(data.frame(Sample = n$lay$name, X = round(n$lay$x, 3), Y = round(n$lay$y, 3),
                     Reads = as.numeric(lib[n$lay$name]), check.names = FALSE, row.names = NULL))
     } else {
-      n <- netB(); deg <- igraph::degree(n$g)
-      txdf <- data.frame(Taxon = rownames(tax_mat(n$p)), tax_mat(n$p), check.names = FALSE,
-                         stringsAsFactors = FALSE, row.names = NULL)
-      dfd <- data.frame(Taxon = names(deg), Dataset = unname(n$ds[names(deg)]),
-                        Degree = as.numeric(deg),
-                        Total_reads = as.numeric(rowSums(n$cnt)[names(deg)]),
-                        check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
-      dt(merge(dfd, txdf, by = "Taxon", all.x = TRUE))
+      dt(net_node_df(netB()))
     }
   }))
   dl_gg("dl_net", function() if (input$net_mode == "sample") netA_gg() else netB_gg(), "network")
@@ -979,14 +987,8 @@ app_server <- function(input, output, session) {
            Nodes = data.frame(Sample = n$lay$name, X = round(n$lay$x, 3), Y = round(n$lay$y, 3),
                               Reads = as.numeric(lib[n$lay$name]), check.names = FALSE, row.names = NULL))
     } else {
-      n <- netB(); deg <- igraph::degree(n$g)
-      txdf <- data.frame(Taxon = rownames(tax_mat(n$p)), tax_mat(n$p), check.names = FALSE,
-                         stringsAsFactors = FALSE, row.names = NULL)
-      dfd <- data.frame(Taxon = names(deg), Dataset = unname(n$ds[names(deg)]),
-                        Degree = as.numeric(deg),
-                        Total_reads = as.numeric(rowSums(n$cnt)[names(deg)]),
-                        check.names = FALSE, stringsAsFactors = FALSE, row.names = NULL)
-      list(Edges = n$edges, Nodes = merge(dfd, txdf, by = "Taxon", all.x = TRUE))
+      n <- netB()
+      list(Edges = n$edges, Nodes = net_node_df(n))
     }
   }, "network")
 

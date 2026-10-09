@@ -193,6 +193,68 @@ is_num <- function(x) {
   mean(!is.na(y)) >= 0.8 && sum(!is.na(y)) >= 3 && length(unique(y[!is.na(y)])) > 2
 }
 
+# ---------------------------------------------------------------------
+# CO-OCCURRENCE STATISTICS
+# ---------------------------------------------------------------------
+# Correlation coefficients and p-values for a taxa x samples count matrix.
+#
+# Both statistics come from the SAME matrix. Counts are converted to per-sample
+# relative abundances first, because that is the scale the network is read on.
+# Deriving r from relative abundances but p from raw counts puts two different
+# analyses in one output row: when library sizes are uneven, normalising changes
+# a taxon's rank order across samples, so the two statistics stop agreeing (e.g.
+# a reported r of 0.7 carrying the p-value that belongs to r = 1).
+cooc_stats <- function(cnt, method = "spearman") {
+  rel <- rel100(cnt)
+  rr  <- cor(t(rel), method = method)
+  n   <- nrow(rr)
+  pm  <- matrix(NA_real_, n, n, dimnames = dimnames(rr))
+  if (n >= 2) for (i in seq_len(n - 1)) for (j in (i + 1):n) {
+    ct <- suppressWarnings(cor.test(rel[i, ], rel[j, ], method = method, exact = FALSE))
+    pm[i, j] <- ct$p.value
+  }
+  # p.adjust drops NA before setting n, so the upper triangle is corrected alone
+  padj <- matrix(p.adjust(as.vector(pm), "BH"), n, n, dimnames = dimnames(rr))
+  list(r = rr, p = pm, p_adj = padj)
+}
+
+# ---------------------------------------------------------------------
+# NETWORK NODE TAXONOMY
+# ---------------------------------------------------------------------
+# Co-occurrence node names are rank labels ("Alteromonas"), not tax_table
+# rownames, so joining a node table to the taxonomy by rowname matches nothing
+# at any rank above ASV. Worse, in a combined two-dataset network a dataset-2
+# node whose label collides with a dataset-1 ASV id ("ASV1") silently picks up
+# the other dataset's lineage. Resolve each label against its own taxonomy
+# table at its own rank, taking the most frequent value per column.
+node_tax_lookup <- function(tt, rank, labels) {
+  labels <- unique(as.character(labels))
+  if (is.null(tt) || !length(labels) || !ncol(tt)) return(NULL)
+  by_asv <- is.null(rank) || identical(rank, "(ASV)") || !rank %in% colnames(tt)
+  consensus <- function(lb) {
+    rows <- if (by_asv) which(rownames(tt) == lb) else which(tt[, rank] == lb)
+    if (!length(rows)) return(setNames(rep(NA_character_, ncol(tt)), colnames(tt)))
+    apply(tt[rows, , drop = FALSE], 2, function(v) {
+      v <- v[!is.na(v)]
+      if (length(v)) names(sort(table(v), decreasing = TRUE))[1] else NA_character_
+    })
+  }
+  m <- vapply(labels, consensus, character(ncol(tt)))
+  m <- matrix(m, nrow = ncol(tt), dimnames = list(colnames(tt), labels))
+  data.frame(Taxon = labels, t(m), check.names = FALSE,
+             stringsAsFactors = FALSE, row.names = NULL)
+}
+
+# row-bind two frames that may not share columns (missing cells become NA)
+rbind_fill <- function(a, b) {
+  if (is.null(a)) return(b)
+  if (is.null(b)) return(a)
+  cols <- union(names(a), names(b))
+  for (cl in setdiff(cols, names(a))) a[[cl]] <- NA_character_
+  for (cl in setdiff(cols, names(b))) b[[cl]] <- NA_character_
+  rbind(a[cols], b[cols])
+}
+
 # exporters ----------------------------------------------------------
 save_gg <- function(g, file, fmt, w, h, dpi) {
   if (fmt == "tiff") {
