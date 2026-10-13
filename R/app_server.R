@@ -152,11 +152,19 @@ app_server <- function(input, output, session) {
   dl_gg <- function(id, getplot, base_name)
     output[[id]] <- downloadHandler(
       filename = function() paste0(base_name, ".", input$fmt),
-      content = function(file) save_gg(getplot(), file, input$fmt, input$ex_w, input$ex_h, input$ex_dpi))
+      content = function(file) {
+        g <- getplot()
+        save_gg(g, file, input$fmt, input$ex_w, input$ex_h, input$ex_dpi)
+        try(print(g), silent = TRUE)  # also show the plot in the R plot pane
+      })
   dl_base <- function(id, drawer, base_name)
     output[[id]] <- downloadHandler(
       filename = function() paste0(base_name, ".", input$fmt),
-      content = function(file) save_base(file, input$fmt, input$ex_w, input$ex_h, input$ex_dpi, drawer()))
+      content = function(file) {
+        draw <- drawer()
+        save_base(file, input$fmt, input$ex_w, input$ex_h, input$ex_dpi, draw)
+        try(draw(), silent = TRUE)  # also show the plot in the R plot pane
+      })
   dl_xl <- function(id, getsheets, base_name)
     output[[id]] <- downloadHandler(filename = function() paste0(base_name, ".xlsx"),
                                     content = function(file) make_xlsx(file, getsheets()))
