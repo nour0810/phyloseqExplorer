@@ -15,7 +15,6 @@ publication-ready figures and statistics, fully offline.
 | **Heatmap** | Z-score heatmap (Ward.D2 clustering or fixed group blocks) with row labels `ASV` / `ASV_species` / `ASV_species_class` / custom ranks |
 | **Alpha diversity** | Observed, Simpson, Chao1, Shannon (+ Faith's PD when a tree exists); Shapiro-Wilk + Bartlett assumption checks; ANOVA/Tukey or Kruskal-Wallis/pairwise Wilcoxon (BH) with significance brackets |
 | **Beta diversity** | Bray-Curtis (or Jaccard/Euclidean) dendrogram, PCoA + biplot; PERMANOVA, betadisper, pairwise PERMANOVA (BH); method summary table |
-| **Environment (RDA)** | Constrained ordination with collinearity screen (\|r\| threshold) and VIF guard; taxon–environment correlation heatmap with BH-adjusted significance |
 | **Network** | Sample-similarity network (distance threshold, 5 layouts, group colors/shapes, read-scaled nodes) and taxon co-occurrence network (Spearman/Pearson/Kendall, \|r\| + FDR thresholds, sign-filtered edges, hub labeling, degree pruning) |
 | **Taxa tables** | Full ASV table (taxonomy, reads, prevalence, sequence) + regex group search |
 
@@ -68,8 +67,6 @@ Optional packages unlock extra features (the app tells you what to install if mi
   (Kruskal–Wallis + pairwise Wilcoxon, BH) accordingly.
 * Beta diversity: PERMANOVA (`vegan::adonis2`) with a homogeneity-of-dispersion
   check (`betadisper`) and BH-adjusted pairwise tests.
-* RDA uses Hellinger-transformed abundances with automated collinearity screening
-  and a VIF ≤ 10 guard.
 
 ## Screenshots
 

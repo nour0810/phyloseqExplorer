@@ -2,8 +2,8 @@
 #'
 #' Opens the interactive Shiny application for exploring any
 #' \code{phyloseq} object: composition, alpha/beta diversity with
-#' statistics, RDA against environmental variables, taxonomy tables and
-#' publication-ready exports. All processing happens locally.
+#' statistics, taxonomy tables and publication-ready exports. All
+#' processing happens locally.
 #'
 #' @param launch.browser Open the app in the browser? Default \code{TRUE}.
 #' @param ... Additional arguments passed to \code{\link[shiny]{runApp}}.

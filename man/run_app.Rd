@@ -15,9 +15,8 @@ Called for its side effect; returns the \code{\link[shiny]{runApp}} result.
 Opens the interactive Shiny application for exploring any \code{phyloseq}
 object: sequence/QC overview, rarefaction curves, composition plots and
 tables, alpha diversity with assumption-checked statistics, beta diversity
-(PCoA, dendrogram, biplot, PERMANOVA, betadisper), constrained ordination
-(RDA) with collinearity and VIF guards, taxon-environment correlations and
-taxonomy tables. Figures export as SVG, PNG, PDF or TIFF; every tab exports
+(PCoA, dendrogram, biplot, PERMANOVA, betadisper) and taxonomy tables.
+Figures export as SVG, PNG, PDF or TIFF; every tab exports
 Excel workbooks. All processing happens locally.
 }
 \examples{
